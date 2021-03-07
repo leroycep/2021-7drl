@@ -163,6 +163,16 @@ export const SCANCODE_UP = @enumToInt(platform.event.Scancode.UP);
 export const SCANCODE_DOWN = @enumToInt(platform.event.Scancode.DOWN);
 export const SCANCODE_SPACE = @enumToInt(platform.event.Scancode.SPACE);
 export const SCANCODE_BACKSPACE = @enumToInt(platform.event.Scancode.BACKSPACE);
+export const SCANCODE_NUMPAD0 = @enumToInt(platform.event.Scancode.KP_0);
+export const SCANCODE_NUMPAD1 = @enumToInt(platform.event.Scancode.KP_1);
+export const SCANCODE_NUMPAD2 = @enumToInt(platform.event.Scancode.KP_2);
+export const SCANCODE_NUMPAD3 = @enumToInt(platform.event.Scancode.KP_3);
+export const SCANCODE_NUMPAD4 = @enumToInt(platform.event.Scancode.KP_4);
+export const SCANCODE_NUMPAD5 = @enumToInt(platform.event.Scancode.KP_5);
+export const SCANCODE_NUMPAD6 = @enumToInt(platform.event.Scancode.KP_6);
+export const SCANCODE_NUMPAD7 = @enumToInt(platform.event.Scancode.KP_7);
+export const SCANCODE_NUMPAD8 = @enumToInt(platform.event.Scancode.KP_8);
+export const SCANCODE_NUMPAD9 = @enumToInt(platform.event.Scancode.KP_9);
 
 export const KEYCODE_UNKNOWN = @enumToInt(platform.event.Keycode.UNKNOWN);
 export const KEYCODE_BACKSPACE = @enumToInt(platform.event.Keycode.BACKSPACE);

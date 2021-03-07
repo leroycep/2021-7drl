@@ -73,6 +73,16 @@ pub fn onEvent(event: platform.event.Event) !void {
             .DOWN => playerPos.y += 1,
             .LEFT => playerPos.x -= 1,
             .RIGHT => playerPos.x += 1,
+
+            .KP_8 => playerPos.y -= 1,
+            .KP_2 => playerPos.y += 1,
+            .KP_4 => playerPos.x -= 1,
+            .KP_6 => playerPos.x += 1,
+
+            .KP_7 => playerPos = playerPos.add(-1, -1),
+            .KP_9 => playerPos = playerPos.add(1, -1),
+            .KP_3 => playerPos = playerPos.add(1, 1),
+            .KP_1 => playerPos = playerPos.add(-1, 1),
             else => {},
         },
         else => {},

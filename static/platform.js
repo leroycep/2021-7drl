@@ -109,6 +109,16 @@ export default function getPlatformEnv(canvas_element, getInstance) {
             ArrowDown: ex.SCANCODE_DOWN,
             Escape: ex.SCANCODE_ESCAPE,
             Space: ex.SCANCODE_SPACE,
+            Numpad0: ex.SCANCODE_NUMPAD0,
+            Numpad1: ex.SCANCODE_NUMPAD1,
+            Numpad2: ex.SCANCODE_NUMPAD2,
+            Numpad3: ex.SCANCODE_NUMPAD3,
+            Numpad4: ex.SCANCODE_NUMPAD4,
+            Numpad5: ex.SCANCODE_NUMPAD5,
+            Numpad6: ex.SCANCODE_NUMPAD6,
+            Numpad7: ex.SCANCODE_NUMPAD7,
+            Numpad8: ex.SCANCODE_NUMPAD8,
+            Numpad9: ex.SCANCODE_NUMPAD9,
         };
         document.addEventListener("keydown", (ev) => {
             if (document.activeElement != canvas_element) return;
