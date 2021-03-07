@@ -5,7 +5,8 @@ dependencies:
 - type: git
   path: https://github.com/leroycep/zigmath.git
 - type: git
-  path: https://github.com/mlarouche/zigimg.git
+  path: https://github.com/leroycep/zigimg.git
+  version: branch-wasm
   name: zigimg
   main: zigimg.zig
 

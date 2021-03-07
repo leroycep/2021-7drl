@@ -48,6 +48,13 @@ export default function getPlatformEnv(canvas_element, getInstance) {
         }
     };
 
+    function getErrorName(errno) {
+        const instance = getInstance();
+        const ptr = instance.exports.wasm_error_name_ptr(errno);
+        const len = instance.exports.wasm_error_name_len(errno);
+        return utf8decoder.decode(new Uint8Array(getMemory().buffer, ptr, len));
+    }
+
     const initFinished = (maxDelta, tickDelta) => {
         const instance = getInstance();
 
@@ -93,13 +100,14 @@ export default function getPlatformEnv(canvas_element, getInstance) {
         throw new Error("The browser does not support WebGL");
     }
 
-    const glShaders = [];
-    const glPrograms = [];
-    const glBuffers = [];
-    const glVertexArrays = [];
-    const glTextures = [];
-    const glFramebuffers = [];
-    const glUniformLocations = [];
+    // Start resources arrays with a null value to ensure the id 0 is never returned
+    const glShaders = [null];
+    const glPrograms = [null];
+    const glBuffers = [null];
+    const glVertexArrays = [null];
+    const glTextures = [null];
+    const glFramebuffers = [null];
+    const glUniformLocations = [null];
 
     // Set up errno constants to be filled in when `platform_run` is called
     let ERRNO_OUT_OF_MEMORY = undefined;
@@ -145,7 +153,12 @@ export default function getPlatformEnv(canvas_element, getInstance) {
             console.log(platform_log_string);
             platform_log_string = "";
         },
-        platform_reject_promise: idpromise_reject,
+        platform_reject_promise: (id, errno) => {
+            idpromise_reject(
+                id,
+                new Error(getErrorName(errno))
+            );
+        },
         platform_resolve_promise: idpromise_resolve,
 
         platform_fetch: (ptr, len, cb, ctx, allocator) => {
@@ -158,7 +171,11 @@ export default function getPlatformEnv(canvas_element, getInstance) {
             fetch(filename)
                 .then((response) => {
                     if (!response.ok) {
-                        instance.exports.wasm_fail_fetch(cb, ctx, ERRNO_NOT_FOUND);
+                        instance.exports.wasm_fail_fetch(
+                            cb,
+                            ctx,
+                            ERRNO_NOT_FOUND
+                        );
                     }
                     return response.arrayBuffer();
                 })
@@ -191,7 +208,8 @@ export default function getPlatformEnv(canvas_element, getInstance) {
                             bytes.byteLength
                         );
                     },
-                    (err) => instance.exports.wasm_fail_fetch(cb, ctx, ERRNO_UNKNOWN)
+                    (err) =>
+                        instance.exports.wasm_fail_fetch(cb, ctx, ERRNO_UNKNOWN)
                 );
         },
 
@@ -240,12 +258,23 @@ export default function getPlatformEnv(canvas_element, getInstance) {
         compileShader(shader) {
             gl.compileShader(glShaders[shader]);
         },
-        getShaderCompileStatus(shader) {
-            return gl.getShaderParameter(glShaders[shader], gl.COMPILE_STATUS);
+        getShaderiv(shader, pname, outptr) {
+            new Int32Array(
+                getMemory().buffer,
+                outptr,
+                1
+            )[0] = gl.getShaderParameter(glShaders[shader], pname);
         },
         createBuffer() {
             glBuffers.push(gl.createBuffer());
             return glBuffers.length - 1;
+        },
+        genBuffers(amount, ptr) {
+            let out = new Uint32Array(getMemory().buffer, ptr, amount);
+            for (let i = 0; i < amount; i += 1) {
+                out[i] = glBuffers.length;
+                glBuffers.push(gl.createBuffer());
+            }
         },
         createFramebuffer() {
             glFramebuffers.push(gl.createFramebuffer());
@@ -259,9 +288,12 @@ export default function getPlatformEnv(canvas_element, getInstance) {
             glShaders.push(gl.createShader(shader_type));
             return glShaders.length - 1;
         },
-        createTexture() {
-            glTextures.push(gl.createTexture());
-            return glTextures.length - 1;
+        genTextures(amount, ptr) {
+            let out = new Uint32Array(getMemory().buffer, ptr, amount);
+            for (let i = 0; i < amount; i += 1) {
+                out[i] = glTextures.length;
+                glTextures.push(gl.createTexture());
+            }
         },
         deleteBuffer(id) {
             gl.deleteBuffer(glBuffers[id]);
@@ -288,9 +320,12 @@ export default function getPlatformEnv(canvas_element, getInstance) {
         disable(cap) {
             gl.disable(cap);
         },
-        createVertexArray() {
-            glVertexArrays.push(gl.createVertexArray());
-            return glVertexArrays.length - 1;
+        genVertexArrays(amount, ptr) {
+            let out = new Uint32Array(getMemory().buffer, ptr, amount);
+            for (let i = 0; i < amount; i += 1) {
+                out[i] = glVertexArrays.length;
+                glVertexArrays.push(gl.createVertexArray());
+            }
         },
         drawArrays(type, offset, count) {
             gl.drawArrays(type, offset, count);
@@ -341,8 +376,12 @@ export default function getPlatformEnv(canvas_element, getInstance) {
         linkProgram(program) {
             gl.linkProgram(glPrograms[program]);
         },
-        getProgramLinkStatus(program) {
-            return gl.getProgramParameter(glPrograms[program], gl.LINK_STATUS);
+        getProgramiv(program, pname, outptr) {
+            new Int32Array(
+                getMemory().buffer,
+                outptr,
+                1
+            )[0] = gl.getProgramParameter(glPrograms[program], pname);
         },
         getProgramInfoLog(program, maxLength, length, infoLog) {
             writeCharStr(
@@ -355,8 +394,25 @@ export default function getPlatformEnv(canvas_element, getInstance) {
         pixelStorei(pname, param) {
             gl.pixelStorei(pname, param);
         },
-        shaderSource_(shader, string_ptr, string_len) {
-            const string = readCharStr(string_ptr, string_len);
+        shaderSource(shader, count, string_ptrs, string_len_array) {
+            let string = "";
+
+            let pointers = new Uint32Array(
+                getMemory().buffer,
+                string_ptrs,
+                count
+            );
+            let lengths = new Uint32Array(
+                getMemory().buffer,
+                string_len_array,
+                count
+            );
+            for (let i = 0; i < count; i += 1) {
+                // TODO: Check if webgl can accept an array of strings
+                const string_to_append = readCharStr(pointers[i], lengths[i]);
+                string = string + string_to_append;
+            }
+
             gl.shaderSource(glShaders[shader], string);
         },
         texImage2D(
@@ -368,14 +424,21 @@ export default function getPlatformEnv(canvas_element, getInstance) {
             border,
             format,
             type,
-            data_ptr,
-            data_len
+            data_ptr
         ) {
-            // FIXME - look at data_ptr, not data_len, to determine NULL?
+            const PIXEL_SIZES = {
+                [gl.RGBA]: 4,
+            };
+            const pixel_size = PIXEL_SIZES[format];
+
+            // Need to find out the pixel size for more formats
+            if (!format) throw new Error("Unimplemented pixel format");
+
             const data =
-                data_len > 0
-                    ? new Uint8Array(getMemory().buffer, data_ptr, data_len)
+                data_ptr != 0
+                    ? new Uint8Array(getMemory().buffer, data_ptr, width * height * pixel_size)
                     : null;
+
             gl.texImage2D(
                 target,
                 level,

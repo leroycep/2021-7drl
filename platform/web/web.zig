@@ -194,7 +194,6 @@ export fn wasm_allocator_alloc(allocator: *std.mem.Allocator, num_bytes: usize) 
     return slice.ptr;
 }
 
-
 // === Fetch API
 const FetchError = error{
     NotFound,
@@ -222,4 +221,13 @@ export fn wasm_fail_fetch(cb_void: *c_void, data_out: *FetchError![]u8, errno: s
         else => unreachable,
     };
     resume cb;
+}
+
+// WASM Error name
+export fn wasm_error_name_ptr(errno: std.meta.Int(.unsigned, @sizeOf(anyerror) * 8)) [*]const u8 {
+    return @errorName(@intToError(errno)).ptr;
+}
+
+export fn wasm_error_name_len(errno: std.meta.Int(.unsigned, @sizeOf(anyerror) * 8)) usize {
+    return @errorName(@intToError(errno)).len;
 }

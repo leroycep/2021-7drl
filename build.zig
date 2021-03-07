@@ -18,6 +18,8 @@ pub fn build(b: *Builder) void {
         .os_tag = .freestanding,
     });
     wasm.addPackage(PLATFORM);
+    wasm.addPackage(deps.pkgs.zigimg);
+    wasm.addPackage(deps.pkgs.math);
 
     const static = b.addInstallDirectory(.{
         .source_dir = "static",
