@@ -22,6 +22,13 @@ pub fn build(b: *Builder) void {
     native.addPackage(deps.pkgs.zigimg);
     native.addPackage(deps.pkgs.math);
     b.step("native", "Build native binary").dependOn(&native.step);
+    
+    const native_run = native.run();
+    // Start the program in the directory with the assets in it
+    native_run.cwd = "static";
+    
+    const native_run_step = b.step("run", "Run the native binary");
+    native_run_step.dependOn(&native_run.step);
 
     const wasm = b.addStaticLibrary("2021-7drl-web", "src/main.zig");
     wasm.setBuildMode(mode);
