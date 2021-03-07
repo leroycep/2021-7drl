@@ -9,7 +9,20 @@ const PLATFORM = std.build.Pkg{
 };
 
 pub fn build(b: *Builder) void {
+    const target = b.standardTargetOptions(.{});
     const mode = b.standardReleaseOptions();
+
+    const native = b.addExecutable("2021-7drl", "src/main.zig");
+    native.setTarget(target);
+    native.setBuildMode(mode);
+    native.install();
+    native.linkLibC();
+    native.linkSystemLibrary("SDL2");
+    native.addPackage(PLATFORM);
+    native.addPackage(deps.pkgs.zigimg);
+    native.addPackage(deps.pkgs.math);
+    b.step("native", "Build native binary").dependOn(&native.step);
+
     const wasm = b.addStaticLibrary("2021-7drl-web", "src/main.zig");
     wasm.setBuildMode(mode);
     wasm.setOutputDir(b.fmt("{s}/www", .{b.install_prefix}));

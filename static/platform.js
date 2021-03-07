@@ -234,7 +234,7 @@ export default function getPlatformEnv(canvas_element, getInstance) {
 
     // Set up errno constants to be filled in when `platform_run` is called
     let ERRNO_OUT_OF_MEMORY = undefined;
-    let ERRNO_NOT_FOUND = undefined;
+    let ERRNO_FILE_NOT_FOUND = undefined;
     let ERRNO_UNKNOWN = undefined;
 
     let platform_log_string = "";
@@ -250,8 +250,8 @@ export default function getPlatformEnv(canvas_element, getInstance) {
                 instance.exports.ERRNO_OUT_OF_MEMORY,
                 true
             );
-            ERRNO_NOT_FOUND = dataview.getUint32(
-                instance.exports.ERRNO_NOT_FOUND,
+            ERRNO_FILE_NOT_FOUND = dataview.getUint32(
+                instance.exports.ERRNO_FILE_NOT_FOUND,
                 true
             );
             ERRNO_UNKNOWN = dataview.getUint32(
@@ -294,7 +294,7 @@ export default function getPlatformEnv(canvas_element, getInstance) {
                         instance.exports.wasm_fail_fetch(
                             cb,
                             ctx,
-                            ERRNO_NOT_FOUND
+                            ERRNO_FILE_NOT_FOUND
                         );
                     }
                     return response.arrayBuffer();

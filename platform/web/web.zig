@@ -145,6 +145,9 @@ pub fn run(comptime app: App) void {
     };
 }
 
+pub fn quit() void {
+}
+
 // TODO: Wrangle
 const platform = @import("../platform.zig");
 const builtin = @import("builtin");
@@ -185,7 +188,7 @@ export const MOUSE_BUTTON_X2 = @enumToInt(platform.event.MouseButton.X2);
 
 // Export errnos
 export const ERRNO_OUT_OF_MEMORY = @errorToInt(error.OutOfMemory);
-export const ERRNO_NOT_FOUND = @errorToInt(error.NotFound);
+export const ERRNO_FILE_NOT_FOUND = @errorToInt(error.FileNotFound);
 export const ERRNO_UNKNOWN = @errorToInt(error.Unknown);
 
 fn catchError(result: anyerror!void) void {
@@ -205,8 +208,8 @@ export fn wasm_allocator_alloc(allocator: *std.mem.Allocator, num_bytes: usize) 
 }
 
 // === Fetch API
-const FetchError = error{
-    NotFound,
+pub const FetchError = error{
+    FileNotFound,
     OutOfMemory,
     Unknown,
 };
@@ -227,7 +230,7 @@ export fn wasm_finalize_fetch(cb_void: *c_void, data_out: *FetchError![]u8, buff
 export fn wasm_fail_fetch(cb_void: *c_void, data_out: *FetchError![]u8, errno: std.meta.Int(.unsigned, @sizeOf(anyerror) * 8)) void {
     const cb = @ptrCast(anyframe, @alignCast(8, cb_void));
     data_out.* = switch (@intToError(errno)) {
-        error.NotFound, error.OutOfMemory, error.Unknown => |e| e,
+        error.FileNotFound, error.OutOfMemory, error.Unknown => |e| e,
         else => unreachable,
     };
     resume cb;

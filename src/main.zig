@@ -13,11 +13,16 @@ const Texture = @import("./texture.zig").Texture;
 // Setup environment
 pub const panic = platform.panic;
 pub const log = platform.log;
-pub const os = struct {
-    pub const bits = struct {
-        pub const fd_t = void;
-    };
-};
+pub usingnamespace if (std.builtin.os.tag == .freestanding)
+    struct {
+        pub const os = struct {
+            pub const bits = struct {
+                pub const fd_t = void;
+            };
+        };
+    }
+else
+    struct {};
 
 pub fn main() void {
     platform.run(.{
@@ -80,6 +85,7 @@ pub fn onEvent(event: platform.event.Event) !void {
             .KP_1 => playerPos = playerPos.add(-1, 1),
             else => {},
         },
+        .Quit => platform.quit(),
         else => {},
     }
 }

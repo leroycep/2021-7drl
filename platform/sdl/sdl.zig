@@ -1,5 +1,4 @@
 const std = @import("std");
-const panic = std.debug.panic;
 const c = @import("c.zig");
 const App = @import("../platform.zig").App;
 const Event = @import("../event.zig").Event;
@@ -9,15 +8,28 @@ const MouseButton = @import("../event.zig").MouseButton;
 const builtin = @import("builtin");
 // pub usingnamespace @import("./gl.zig");
 pub const gl = @import("./gl_es_3v0.zig");
-pub const glUtil = @import("./gl_util.zig");
 const Timer = std.time.Timer;
 
 const Vec2i = @import("math").Vec2i;
 const vec2i = @import("math").vec2i;
 
-pub const warn = std.debug.warn;
+const sdllog = std.log.scoped(.PlatformNative);
 
-const log = std.log.scoped(.PlatformNative);
+pub fn log(
+    comptime message_level: std.log.Level,
+    comptime scope: @Type(.EnumLiteral),
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    const stderr = std.io.getStdErr().writer();
+    const held = std.debug.getStderrMutex().acquire();
+    defer held.release();
+    nosuspend stderr.print("[{s}][{s}] ", .{ std.meta.tagName(message_level), std.meta.tagName(scope) }) catch return;
+    nosuspend stderr.print(format, args) catch return;
+    _ = nosuspend stderr.write("\n") catch return;
+}
+
+pub const panic = builtin.default_panic;
 
 pub const Context = struct {
     // Standard struct members
@@ -27,12 +39,6 @@ pub const Context = struct {
     // SDL backend specific
     window: *c.SDL_Window,
     gl_context: c.SDL_GLContext,
-
-    pub fn getScreenSize(this: *@This()) Vec2i {
-        var size: Vec2i = undefined;
-        c.SDL_GL_GetDrawableSize(this.window, &size.x, &size.y);
-        return size;
-    }
 
     pub fn setRelativeMouseMode(this: *@This(), val: bool) !void {
         const res = c.SDL_SetRelativeMouseMode(if (val) .SDL_TRUE else .SDL_FALSE);
@@ -47,14 +53,19 @@ fn get_proc_address(_: u8, proc: [:0]const u8) ?*c_void {
     return c.SDL_GL_GetProcAddress(proc);
 }
 
-pub fn run(app: App) !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const alloc = &gpa.allocator;
+var sdl_window: *c.SDL_Window = undefined;
+var running = true;
 
+pub fn getScreenSize() Vec2i {
+    var size: Vec2i = undefined;
+    c.SDL_GL_GetDrawableSize(sdl_window, &size.x, &size.y);
+    return size;
+}
+
+pub fn run(comptime app: App) void {
     // Init SDL
     if (c.SDL_Init(c.SDL_INIT_VIDEO | c.SDL_INIT_AUDIO) != 0) {
-        return logSDLErr(error.InitFailed);
+        logSDLErr(error.InitFailed);
     }
     defer c.SDL_Quit();
 
@@ -66,7 +77,7 @@ pub fn run(app: App) !void {
     const screenWidth = app.window.width orelse 640;
     const screenHeight = app.window.width orelse 480;
 
-    const sdl_window = c.SDL_CreateWindow(
+    sdl_window = c.SDL_CreateWindow(
         app.window.title,
         c.SDL_WINDOWPOS_UNDEFINED_MASK,
         c.SDL_WINDOWPOS_UNDEFINED_MASK,
@@ -74,7 +85,7 @@ pub fn run(app: App) !void {
         screenHeight,
         c.SDL_WINDOW_SHOWN | c.SDL_WINDOW_OPENGL | c.SDL_WINDOW_RESIZABLE,
     ) orelse {
-        return logSDLErr(error.CouldntCreateWindow);
+        logSDLErr(error.CouldntCreateWindow);
     };
     defer c.SDL_DestroyWindow(sdl_window);
 
@@ -83,7 +94,7 @@ pub fn run(app: App) !void {
     c.SDL_ShowWindow(sdl_window);
 
     var ctx: u8 = 0; // bogus context variable to satisfy gl.load
-    try gl.load(ctx, get_proc_address);
+    gl.load(ctx, get_proc_address) catch |err| std.debug.panic("Failed to load OpenGL: {}", .{err});
 
     // Setup opengl debug message callback
     // if (builtin.mode == .Debug) {
@@ -91,31 +102,22 @@ pub fn run(app: App) !void {
     //     gl.debugMessageCallback(MessageCallback, null);
     // }
 
-    // Create context for app
-    var context = Context{
-        .alloc = alloc,
-        .window = sdl_window,
-        .gl_context = gl_context,
-    };
+    sdllog.info("application initialized", .{});
 
-    log.info("application initialized", .{});
-
-    try app.init(&context);
-    defer app.deinit(&context);
+    nosuspend app.init() catch |err| std.debug.panic("Failed to initialze app: {}", .{err});
+    defer app.deinit();
 
     // Timestep based on the Gaffer on Games post, "Fix Your Timestep"
     //    https://www.gafferongames.com/post/fix_your_timestep/
     const MAX_DELTA = app.maxDeltaSeconds;
     const TICK_DELTA = app.tickDeltaSeconds;
-    var timer = try Timer.start();
+    var timer = Timer.start() catch |err| std.debug.panic("Failed to create timer: {}", .{err});
     var tickTime: f64 = 0.0;
     var accumulator: f64 = 0.0;
 
-    while (context.running) {
+    while (running) {
         while (pollEvent()) |event| {
-            if (app.event) |onEvent| {
-                try onEvent(&context, event);
-            }
+            app.event(event) catch |err| std.debug.panic("Failed to process event: {}", .{err});
         }
 
         var delta = @intToFloat(f64, timer.lap()) / std.time.ns_per_s; // Delta in seconds
@@ -126,9 +128,7 @@ pub fn run(app: App) !void {
         accumulator += delta;
 
         while (accumulator >= TICK_DELTA) {
-            if (app.update) |update| {
-                try update(&context, tickTime, TICK_DELTA);
-            }
+            app.update(tickTime, TICK_DELTA) catch |err| std.debug.panic("Failed to update app: {}", .{err});
             accumulator -= TICK_DELTA;
             tickTime += TICK_DELTA;
         }
@@ -138,11 +138,13 @@ pub fn run(app: App) !void {
         // then alpha will be equal to 0.5
         const alpha = accumulator / TICK_DELTA;
 
-        try app.render(&context, alpha);
+        app.render(alpha) catch |err| std.debug.panic("Failed to render app: {}", .{err});
         c.SDL_GL_SwapWindow(sdl_window);
-
-        //std.time.sleep(10_000);
     }
+}
+
+pub fn quit() void {
+    running = false;
 }
 
 pub const Error = error{
@@ -155,13 +157,27 @@ pub const Error = error{
     CouldntSetRelativeMouseMode,
 };
 
-pub fn logSDLErr(err: Error) Error {
-    std.debug.warn("{}: {}\n", .{ err, @as([*:0]const u8, c.SDL_GetError()) });
-    return err;
+pub fn logSDLErr(err: Error) noreturn {
+    std.debug.panic("{}: {s}\n", .{ err, @as([*:0]const u8, c.SDL_GetError()) });
 }
 
 pub fn now() u64 {
     return std.time.milliTimestamp();
+}
+
+pub const FetchError = error{
+    FileNotFound,
+    OutOfMemory,
+    Unknown,
+};
+
+pub fn fetch(allocator: *std.mem.Allocator, file_name: []const u8) FetchError![]const u8 {
+    const cwd = std.fs.cwd();
+    const contents = cwd.readFileAlloc(allocator, file_name, 50000) catch |err| switch (err) {
+        error.FileNotFound, error.OutOfMemory => |e| return e,
+        else => |e| return error.Unknown,
+    };
+    return contents;
 }
 
 fn MessageCallback(source: gl.GLenum, msgtype: gl.GLenum, id: gl.GLuint, severity: gl.GLenum, len: gl.GLsizei, msg: [*c]const gl.GLchar, userParam: ?*const c_void) callconv(.C) void {
@@ -170,10 +186,10 @@ fn MessageCallback(source: gl.GLenum, msgtype: gl.GLenum, id: gl.GLuint, severit
     const debug_msg_source = @intToEnum(OpenGL_DebugSource, source);
     const debug_msg_type = @intToEnum(OpenGL_DebugType, msgtype);
     switch (severity) {
-        c.GL_DEBUG_SEVERITY_HIGH => log.err("{} {} {}", .{ debug_msg_source, debug_msg_type, msg_slice }),
-        c.GL_DEBUG_SEVERITY_MEDIUM => log.warn("{} {} {}", .{ debug_msg_source, debug_msg_type, msg_slice }),
-        c.GL_DEBUG_SEVERITY_LOW => log.info("{} {} {}", .{ debug_msg_source, debug_msg_type, msg_slice }),
-        c.GL_DEBUG_SEVERITY_NOTIFICATION => log.notice("{} {} {}", .{ debug_msg_source, debug_msg_type, msg_slice }),
+        c.GL_DEBUG_SEVERITY_HIGH => sdllog.err("{} {} {}", .{ debug_msg_source, debug_msg_type, msg_slice }),
+        c.GL_DEBUG_SEVERITY_MEDIUM => sdllog.warn("{} {} {}", .{ debug_msg_source, debug_msg_type, msg_slice }),
+        c.GL_DEBUG_SEVERITY_LOW => sdllog.info("{} {} {}", .{ debug_msg_source, debug_msg_type, msg_slice }),
+        c.GL_DEBUG_SEVERITY_NOTIFICATION => sdllog.notice("{} {} {}", .{ debug_msg_source, debug_msg_type, msg_slice }),
         else => unreachable,
     }
 }
@@ -201,7 +217,7 @@ const OpenGL_DebugType = enum(c.GLenum) {
 
 pub fn sdlAssertZero(ret: c_int) void {
     if (ret == 0) return;
-    panic("sdl function returned an error: {s}\n", .{c.SDL_GetError()});
+    std.debug.panic("sdl function returned an error: {s}\n", .{c.SDL_GetError()});
 }
 
 pub fn pollEvent() ?Event {
@@ -274,7 +290,7 @@ fn sdlToCommonButton(btn: u8) MouseButton {
         c.SDL_BUTTON_RIGHT => return .Right,
         c.SDL_BUTTON_X1 => return .X1,
         c.SDL_BUTTON_X2 => return .X2,
-        else => panic("unknown mouse button", .{}),
+        else => std.debug.panic("unknown mouse button", .{}),
     }
 }
 
@@ -521,7 +537,7 @@ fn sdlToCommonScancode(scn: c.SDL_Scancode) Scancode {
         c.SDL_SCANCODE_SLEEP => return .SLEEP,
         c.SDL_SCANCODE_APP1 => return .APP1,
         c.SDL_SCANCODE_APP2 => return .APP2,
-        else => panic("unknown scancode", .{}),
+        else => std.debug.panic("unknown scancode", .{}),
     }
 }
 
@@ -763,6 +779,6 @@ fn sdlToCommonKeycode(key: c.SDL_Keycode) Keycode {
         c.SDLK_QUOTEDBL => .QUOTEDBL,
         c.SDLK_RIGHTPAREN => .RIGHTPAREN,
         c.SDLK_UNDERSCORE => .UNDERSCORE,
-        else => panic("unknown scancode", .{}),
+        else => std.debug.panic("unknown keycode", .{}),
     };
 }
