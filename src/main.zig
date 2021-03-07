@@ -48,18 +48,13 @@ var playerPos = vec2i(10, 10);
 pub fn onInit() !void {
     std.log.info("app init", .{});
 
-    var fetch_hello = async platform.fetch(allocator, "hello.txt");
     var load_tileset = async Texture.initFromFile(allocator, "colored_tilemap_packed.png");
-
-    const hello_text = try await fetch_hello;
-    defer allocator.free(hello_text);
 
     // == Load tileset
     tilesetTex = try await load_tileset;
 
     // == Initialize renderer
     flatRenderer = try FlatRenderer.init(allocator, platform.getScreenSize().intToFloat(f32));
-    std.log.debug("canvas size = {d}", .{platform.getScreenSize().intToFloat(f32)});
 }
 
 fn onDeinit() void {
