@@ -23,6 +23,7 @@ pub fn main() void {
     platform.run(.{
         .init = onInit,
         .deinit = onDeinit,
+        .event = onEvent,
         .render = render,
         .window = .{
             .title = "2021 7 Day Roguelike",
@@ -42,6 +43,7 @@ const allocator = &gpa.allocator;
 
 var tilesetTex: Texture = undefined;
 var flatRenderer: FlatRenderer = undefined;
+var playerPos = vec2i(10, 10);
 
 pub fn onInit() !void {
     std.log.info("app init", .{});
@@ -64,6 +66,19 @@ fn onDeinit() void {
     std.log.info("app deinit", .{});
 }
 
+pub fn onEvent(event: platform.event.Event) !void {
+    switch (event) {
+        .KeyDown => |e| switch (e.scancode) {
+            .UP => playerPos.y -= 1,
+            .DOWN => playerPos.y += 1,
+            .LEFT => playerPos.x -= 1,
+            .RIGHT => playerPos.x += 1,
+            else => {},
+        },
+        else => {},
+    }
+}
+
 pub fn render(alpha: f64) !void {
     const screen_size_int = platform.getScreenSize();
     const screen_size = screen_size_int.intToFloat(f32);
@@ -75,6 +90,7 @@ pub fn render(alpha: f64) !void {
     render_tile(0, vec2i(0, 0));
     render_tile(1, vec2i(1, 0));
     render_tile(2, vec2i(2, 0));
+    render_tile(4, playerPos);
     flatRenderer.flush();
 }
 

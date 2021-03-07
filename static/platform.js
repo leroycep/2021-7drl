@@ -89,6 +89,119 @@ export default function getPlatformEnv(canvas_element, getInstance) {
             }
         }
         window.requestAnimationFrame(step);
+
+        const ex = instance.exports;
+        const keyMap = {
+            Unknown: ex.KEYCODE_UNKNOWN,
+            Backspace: ex.KEYCODE_BACKSPACE,
+        };
+        const codeMap = {
+            Unknown: ex.SCANCODE_UNKNOWN,
+            KeyW: ex.SCANCODE_W,
+            KeyA: ex.SCANCODE_A,
+            KeyS: ex.SCANCODE_S,
+            KeyD: ex.SCANCODE_D,
+            KeyZ: ex.SCANCODE_Z,
+            KeyR: ex.SCANCODE_R,
+            ArrowLeft: ex.SCANCODE_LEFT,
+            ArrowRight: ex.SCANCODE_RIGHT,
+            ArrowUp: ex.SCANCODE_UP,
+            ArrowDown: ex.SCANCODE_DOWN,
+            Escape: ex.SCANCODE_ESCAPE,
+            Space: ex.SCANCODE_SPACE,
+        };
+        document.addEventListener("keydown", (ev) => {
+            //if (document.activeElement != canvas_element) return;
+
+            if (ev.defaultPrevented) {
+                return;
+            }
+            ev.preventDefault();
+
+            let zigKeyConst = keyMap[ev.key];
+            if (!zigKeyConst) {
+                zigKeyConst = keyMap.Unknown;
+            }
+
+            let zigScancodeConst = codeMap[ev.code];
+            if (!zigScancodeConst) {
+                zigScancodeConst = codeMap.Unknown;
+            }
+
+            const zigKey = new Uint16Array(getMemory().buffer, zigKeyConst, 1)[0];
+            const zigScancode = new Uint16Array(
+                getMemory().buffer,
+                zigScancodeConst,
+                1
+            )[0];
+            instance.exports.onKeyDown(zigKey, zigScancode);
+
+            if (!ev.isComposing) {
+                switch (ev.key) {
+                    case "Unidentified":
+                    case "Alt":
+                    case "AltGraph":
+                    case "CapsLock":
+                    case "Control":
+                    case "Fn":
+                    case "FnLock":
+                    case "Hyper":
+                    case "Meta":
+                    case "NumLock":
+                    case "ScrollLock":
+                    case "Shift":
+                    case "Super":
+                    case "Symbol":
+                    case "SymbolLock":
+                    case "Enter":
+                    case "Tab":
+                    case "ArrowDown":
+                    case "ArrowLeft":
+                    case "ArrowRight":
+                    case "ArrowUp":
+                    case "OS":
+                    case "Escape":
+                    case "Backspace":
+                        // Don't send text input events for special keys
+                        return;
+                    default:
+                        break;
+                }
+                const zigbytes = new Uint8Array(
+                    getMemory().buffer,
+                    instance.exports.TEXT_INPUT_BUFFER,
+                    32
+                );
+
+                const encoder = new TextEncoder();
+                const message = encoder.encode(ev.key);
+
+                let zigidx = 0;
+                for (const b of message) {
+                    if (zigidx >= 32 - 1) break;
+                    zigbytes[zigidx] = b;
+                    zigidx += 1;
+                }
+                zigbytes[zigidx] = 0;
+
+                instance.exports.onTextInput(zigidx);
+            }
+        });
+
+        document.addEventListener("keyup", (ev) => {
+            if (ev.defaultPrevented) {
+                return;
+            }
+            const zigConst = codeMap[ev.code];
+            if (zigConst !== undefined) {
+                const zigCode = new Uint16Array(
+                    getMemory().buffer,
+                    zigConst,
+                    1
+                )[0];
+                instance.exports.onKeyUp(zigCode);
+            }
+        });
     };
 
     const gl = canvas_element.getContext("webgl2", {
@@ -154,10 +267,7 @@ export default function getPlatformEnv(canvas_element, getInstance) {
             platform_log_string = "";
         },
         platform_reject_promise: (id, errno) => {
-            idpromise_reject(
-                id,
-                new Error(getErrorName(errno))
-            );
+            idpromise_reject(id, new Error(getErrorName(errno)));
         },
         platform_resolve_promise: idpromise_resolve,
 
@@ -436,7 +546,11 @@ export default function getPlatformEnv(canvas_element, getInstance) {
 
             const data =
                 data_ptr != 0
-                    ? new Uint8Array(getMemory().buffer, data_ptr, width * height * pixel_size)
+                    ? new Uint8Array(
+                          getMemory().buffer,
+                          data_ptr,
+                          width * height * pixel_size
+                      )
                     : null;
 
             gl.texImage2D(
