@@ -111,7 +111,7 @@ export default function getPlatformEnv(canvas_element, getInstance) {
             Space: ex.SCANCODE_SPACE,
         };
         document.addEventListener("keydown", (ev) => {
-            //if (document.activeElement != canvas_element) return;
+            if (document.activeElement != canvas_element) return;
 
             if (ev.defaultPrevented) {
                 return;
