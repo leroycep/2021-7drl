@@ -4,7 +4,10 @@ const gl = platform.gl;
 const testing = std.testing;
 const FlatRenderer = @import("./flat_render.zig").FlatRenderer;
 const zigimg = @import("zigimg");
-const vec2f = @import("math").Vec(2, f32).init;
+const math = @import("math");
+const vec2f = math.Vec(2, f32).init;
+const Vec2i = math.Vec(2, i64);
+const vec2i = Vec2i.init;
 const Texture = @import("./texture.zig").Texture;
 
 // Setup environment
@@ -28,8 +31,10 @@ pub fn main() void {
 }
 
 // Constants
-const TILE_W = 8.0;
-const TILE_H = 8.0;
+const TILESET_W = 112;
+const TILESET_H = 80;
+const TILE_W = 8;
+const TILE_H = 8;
 
 // Global variables
 var gpa = std.heap.GeneralPurposeAllocator(.{ .safety = false }){};
@@ -67,8 +72,18 @@ pub fn render(alpha: f64) !void {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.viewport(0, 0, screen_size_int.x, screen_size_int.y);
 
-    try flatRenderer.drawTextureRect(tilesetTex, vec2f(0, 0), vec2f(1.0 / (112.0 / TILE_W), 1.0 / (80.0 / TILE_H)), vec2f(0, 0), vec2f(16, 16));
-    try flatRenderer.drawTextureRect(tilesetTex, vec2f(1.0 / (112.0 / TILE_W), 0), vec2f(2.0 / (112.0 / TILE_W), 1.0 / (80.0 / TILE_H)), vec2f(16, 0), vec2f(16, 16));
-    try flatRenderer.drawTextureRect(tilesetTex, vec2f(2.0 / (112.0 / TILE_W), 0), vec2f(3.0 / (112.0 / TILE_W), 1.0 / (80.0 / TILE_H)), vec2f(32, 0), vec2f(16, 16));
+    render_tile(0, vec2i(0, 0));
+    render_tile(1, vec2i(1, 0));
+    render_tile(2, vec2i(2, 0));
     flatRenderer.flush();
+}
+
+fn render_tile(id: u16, pos: Vec2i) void {
+    const tileposy = id / (TILESET_W / TILE_W);
+    const tileposx = id - (tileposy * (TILESET_W / TILE_W));
+
+    const texpos1 = vec2f(@intToFloat(f32, tileposx) / @intToFloat(f32, TILESET_W / TILE_W), @intToFloat(f32, tileposy) / @intToFloat(f32, TILESET_H / TILE_H));
+    const texpos2 = vec2f(@intToFloat(f32, tileposx + 1) / @intToFloat(f32, TILESET_W / TILE_W), @intToFloat(f32, tileposy + 1) / @intToFloat(f32, TILESET_H / TILE_H));
+
+    flatRenderer.drawTextureRect(tilesetTex, texpos1, texpos2, pos.scale(16).intToFloat(f32), vec2f(16, 16)) catch unreachable;
 }
