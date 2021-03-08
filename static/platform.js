@@ -415,9 +415,13 @@ export default function getPlatformEnv(canvas_element, getInstance) {
                 glTextures.push(gl.createTexture());
             }
         },
-        deleteBuffer(id) {
-            gl.deleteBuffer(glBuffers[id]);
-            glBuffers[id] = undefined;
+        deleteBuffers(amount, ids_ptr) {
+            let ids = new Uint32Array(getMemory().buffer, ids_ptr, amount);
+            for (let i = 0; i < amount; i += 1) {
+                const id = ids[i];
+                gl.deleteBuffer(glBuffers[id]);
+                glBuffers[id] = undefined;
+            }
         },
         deleteProgram(id) {
             gl.deleteProgram(glPrograms[id]);
@@ -430,6 +434,14 @@ export default function getPlatformEnv(canvas_element, getInstance) {
         deleteTexture(id) {
             gl.deleteTexture(glTextures[id]);
             glTextures[id] = undefined;
+        },
+        deleteVertexArrays(amount, ids_ptr) {
+            let ids = new Uint32Array(getMemory().buffer, ids_ptr, amount);
+            for (let i = 0; i < amount; i += 1) {
+                const id = ids[i];
+                gl.deleteVertexArray(glVertexArrays[id]);
+                glVertexArrays[id] = undefined;
+            }
         },
         depthFunc(x) {
             gl.depthFunc(x);

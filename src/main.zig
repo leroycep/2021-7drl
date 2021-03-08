@@ -43,12 +43,14 @@ const TILE_W = 8;
 const TILE_H = 8;
 
 // Global variables
-var gpa = std.heap.GeneralPurposeAllocator(.{ .safety = false }){};
+var gpa = std.heap.GeneralPurposeAllocator(.{ .safety = (std.builtin.os.tag != .freestanding) }){};
 const allocator = &gpa.allocator;
 
 var tilesetTex: Texture = undefined;
 var flatRenderer: FlatRenderer = undefined;
+var map: Map = undefined;
 var playerPos = vec2i(10, 10);
+var playerMove = vec2i(0, 0);
 
 pub fn onInit() !void {
     std.log.info("app init", .{});
@@ -60,34 +62,66 @@ pub fn onInit() !void {
 
     // == Initialize renderer
     flatRenderer = try FlatRenderer.init(allocator, platform.getScreenSize().intToFloat(f32));
+
+    // Create map
+    map = try Map.init(allocator, vec2i(30, 30));
+    map.set(vec2i(0, 0), 1);
+    map.set(vec2i(1, 0), 1);
+    map.set(vec2i(2, 0), 1);
+    map.set(vec2i(3, 0), 1);
+    map.set(vec2i(4, 0), 1);
+
+    map.set(vec2i(0, 4), 1);
+    map.set(vec2i(1, 4), 1);
+    map.set(vec2i(2, 4), 1);
+    map.set(vec2i(3, 4), 1);
+    map.set(vec2i(4, 4), 1);
+
+    map.set(vec2i(0, 1), 1);
+    map.set(vec2i(0, 2), 1);
+    map.set(vec2i(0, 3), 1);
+    map.set(vec2i(0, 4), 1);
+
+    map.set(vec2i(4, 1), 1);
+    map.set(vec2i(4, 2), 1);
+    map.set(vec2i(4, 3), 1);
+    map.set(vec2i(4, 4), 1);
 }
 
 fn onDeinit() void {
     std.log.info("app deinit", .{});
+    map.deinit();
+    flatRenderer.deinit();
+    _ = gpa.deinit();
 }
 
 pub fn onEvent(event: platform.event.Event) !void {
     switch (event) {
         .KeyDown => |e| switch (e.scancode) {
-            .UP => playerPos.y -= 1,
-            .DOWN => playerPos.y += 1,
-            .LEFT => playerPos.x -= 1,
-            .RIGHT => playerPos.x += 1,
+            .UP => playerMove = vec2i(0, -1),
+            .DOWN => playerMove = vec2i(0, 1),
+            .LEFT => playerMove = vec2i(-1, 0),
+            .RIGHT => playerMove = vec2i(1, 0),
 
-            .KP_8 => playerPos.y -= 1,
-            .KP_2 => playerPos.y += 1,
-            .KP_4 => playerPos.x -= 1,
-            .KP_6 => playerPos.x += 1,
+            .KP_8 => playerMove = vec2i(0, -1),
+            .KP_2 => playerMove = vec2i(0, 1),
+            .KP_4 => playerMove = vec2i(-1, 0),
+            .KP_6 => playerMove = vec2i(1, 0),
 
-            .KP_7 => playerPos = playerPos.add(-1, -1),
-            .KP_9 => playerPos = playerPos.add(1, -1),
-            .KP_3 => playerPos = playerPos.add(1, 1),
-            .KP_1 => playerPos = playerPos.add(-1, 1),
+            .KP_7 => playerMove = vec2i(-1, -1),
+            .KP_9 => playerMove = vec2i(1, -1),
+            .KP_3 => playerMove = vec2i(1, 1),
+            .KP_1 => playerMove = vec2i(-1, 1),
             else => {},
         },
         .Quit => platform.quit(),
         else => {},
     }
+
+    if (map.get(playerPos.addv(playerMove)) == 0) {
+        playerPos = playerPos.addv(playerMove);
+    }
+    playerMove = vec2i(0, 0);
 }
 
 pub fn render(alpha: f64) !void {
@@ -98,9 +132,7 @@ pub fn render(alpha: f64) !void {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.viewport(0, 0, screen_size_int.x, screen_size_int.y);
 
-    render_tile(0, vec2i(0, 0));
-    render_tile(1, vec2i(1, 0));
-    render_tile(2, vec2i(2, 0));
+    map.render();
     render_tile(4, playerPos);
     flatRenderer.flush();
 }
@@ -114,3 +146,73 @@ fn render_tile(id: u16, pos: Vec2i) void {
 
     flatRenderer.drawTextureRect(tilesetTex, texpos1, texpos2, pos.scale(16).intToFloat(f32), vec2f(16, 16)) catch unreachable;
 }
+
+const Map = struct {
+    allocator: *std.mem.Allocator,
+    tiles: []u16,
+    size: Vec2i,
+
+    pub fn init(alloc: *std.mem.Allocator, size: Vec2i) !@This() {
+        const tiles = try alloc.alloc(u16, @intCast(usize, size.x * size.y));
+        errdefer allocator.free(tiles);
+        std.mem.set(u16, tiles, 0);
+        return @This(){
+            .allocator = alloc,
+            .tiles = tiles,
+            .size = size,
+        };
+    }
+
+    pub fn deinit(this: @This()) void {
+        this.allocator.free(this.tiles);
+    }
+
+    pub fn tileIdx(this: @This(), pos: Vec2i) usize {
+        return @intCast(usize, pos.y * this.size.x + pos.x);
+    }
+
+    pub fn set(this: *@This(), pos: Vec2i, tile: u16) void {
+        const idx = this.tileIdx(pos);
+        this.tiles[idx] = tile;
+    }
+
+    pub fn get(this: @This(), pos: Vec2i) u16 {
+        if (pos.x < 0 or pos.x >= this.size.x or pos.y < 0 or pos.y >= this.size.y) return 0;
+        const idx = this.tileIdx(pos);
+        return this.tiles[idx];
+    }
+
+    pub fn render(this: @This()) void {
+        var pos = vec2i(0, 0);
+        while (pos.y < this.size.y) : (pos.y += 1) {
+            pos.x = 0;
+            while (pos.x < this.size.x) : (pos.x += 1) {
+                switch (this.tiles[this.tileIdx(pos)]) {
+                    0 => render_tile(15, pos),
+                    1 => {
+                        const up = this.get(pos.add(0, -1)) == 1;
+                        const down = this.get(pos.add(0, 1)) == 1;
+                        const right = this.get(pos.add(1, 0)) == 1;
+                        const left = this.get(pos.add(-1, 0)) == 1;
+                        if (up and down and left and right) {
+                            render_tile(85, pos);
+                        } else if (up and right) {
+                            render_tile(132, pos);
+                        } else if (up and left) {
+                            render_tile(135, pos);
+                        } else if (down and right) {
+                            render_tile(126, pos);
+                        } else if (down and left) {
+                            render_tile(129, pos);
+                        } else if (up or down) {
+                            render_tile(130, pos);
+                        } else {
+                            render_tile(127, pos);
+                        }
+                    },
+                    else => {},
+                }
+            }
+        }
+    }
+};
