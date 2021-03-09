@@ -9,6 +9,9 @@ const vec2f = math.Vec(2, f32).init;
 const Vec2i = math.Vec(2, i64);
 const vec2i = Vec2i.init;
 const Texture = @import("./texture.zig").Texture;
+const Map = @import("./map.zig").Map;
+const tile = @import("./tile.zig");
+const generate = @import("./generate.zig");
 
 // Setup environment
 pub const panic = platform.panic;
@@ -64,28 +67,31 @@ pub fn onInit() !void {
     flatRenderer = try FlatRenderer.init(allocator, platform.getScreenSize().intToFloat(f32));
 
     // Create map
-    map = try Map.init(allocator, vec2i(30, 30));
-    map.set(vec2i(0, 0), 1);
-    map.set(vec2i(1, 0), 1);
-    map.set(vec2i(2, 0), 1);
-    map.set(vec2i(3, 0), 1);
-    map.set(vec2i(4, 0), 1);
+    map = try generate.generateMap(allocator, .{
+        .size = vec2i(50, 50),
+        .max_rooms = 50,
+        .room_size_range = .{
+            .min = 3,
+            .max = 10,
+        },
+    });
 
-    map.set(vec2i(0, 4), 1);
-    map.set(vec2i(1, 4), 1);
-    map.set(vec2i(2, 4), 1);
-    map.set(vec2i(3, 4), 1);
-    map.set(vec2i(4, 4), 1);
-
-    map.set(vec2i(0, 1), 1);
-    map.set(vec2i(0, 2), 1);
-    map.set(vec2i(0, 3), 1);
-    map.set(vec2i(0, 4), 1);
-
-    map.set(vec2i(4, 1), 1);
-    map.set(vec2i(4, 2), 1);
-    map.set(vec2i(4, 3), 1);
-    map.set(vec2i(4, 4), 1);
+    {
+        var y: i32 = 0;
+        while (y < map.size.y) : (y += 1) {
+            map.set(vec2i(0, y), .ThickWallVertical);
+            map.set(vec2i(map.size.x - 1, y), .ThickWallVertical);
+        }
+        var x: i32 = 0;
+        while (x < map.size.x) : (x += 1) {
+            map.set(vec2i(x, 0), .ThickWallHorizontal);
+            map.set(vec2i(x, map.size.y - 1), .ThickWallHorizontal);
+        }
+        map.set(vec2i(0, 0), .ThickWallDownRight);
+        map.set(vec2i(map.size.x - 1, 0), .ThickWallDownLeft);
+        map.set(vec2i(map.size.x - 1, map.size.y - 1), .ThickWallUpLeft);
+        map.set(vec2i(0, map.size.y - 1), .ThickWallUpRight);
+    }
 }
 
 fn onDeinit() void {
@@ -98,15 +104,10 @@ fn onDeinit() void {
 pub fn onEvent(event: platform.event.Event) !void {
     switch (event) {
         .KeyDown => |e| switch (e.scancode) {
-            .UP => playerMove = vec2i(0, -1),
-            .DOWN => playerMove = vec2i(0, 1),
-            .LEFT => playerMove = vec2i(-1, 0),
-            .RIGHT => playerMove = vec2i(1, 0),
-
-            .KP_8 => playerMove = vec2i(0, -1),
-            .KP_2 => playerMove = vec2i(0, 1),
-            .KP_4 => playerMove = vec2i(-1, 0),
-            .KP_6 => playerMove = vec2i(1, 0),
+            .KP_8, .W, .UP => playerMove = vec2i(0, -1),
+            .KP_2, .S, .DOWN => playerMove = vec2i(0, 1),
+            .KP_4, .A, .LEFT => playerMove = vec2i(-1, 0),
+            .KP_6, .D, .RIGHT => playerMove = vec2i(1, 0),
 
             .KP_7 => playerMove = vec2i(-1, -1),
             .KP_9 => playerMove = vec2i(1, -1),
@@ -118,7 +119,7 @@ pub fn onEvent(event: platform.event.Event) !void {
         else => {},
     }
 
-    if (map.get(playerPos.addv(playerMove)) == 0) {
+    if (!map.getDesc(playerPos.addv(playerMove)).solid) {
         playerPos = playerPos.addv(playerMove);
     }
     playerMove = vec2i(0, 0);
@@ -127,6 +128,8 @@ pub fn onEvent(event: platform.event.Event) !void {
 pub fn render(alpha: f64) !void {
     const screen_size_int = platform.getScreenSize();
     const screen_size = screen_size_int.intToFloat(f32);
+
+    flatRenderer.setSize(screen_size);
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -137,7 +140,7 @@ pub fn render(alpha: f64) !void {
     flatRenderer.flush();
 }
 
-fn render_tile(id: u16, pos: Vec2i) void {
+pub fn render_tile(id: u16, pos: Vec2i) void {
     const tileposy = id / (TILESET_W / TILE_W);
     const tileposx = id - (tileposy * (TILESET_W / TILE_W));
 
@@ -146,73 +149,3 @@ fn render_tile(id: u16, pos: Vec2i) void {
 
     flatRenderer.drawTextureRect(tilesetTex, texpos1, texpos2, pos.scale(16).intToFloat(f32), vec2f(16, 16)) catch unreachable;
 }
-
-const Map = struct {
-    allocator: *std.mem.Allocator,
-    tiles: []u16,
-    size: Vec2i,
-
-    pub fn init(alloc: *std.mem.Allocator, size: Vec2i) !@This() {
-        const tiles = try alloc.alloc(u16, @intCast(usize, size.x * size.y));
-        errdefer allocator.free(tiles);
-        std.mem.set(u16, tiles, 0);
-        return @This(){
-            .allocator = alloc,
-            .tiles = tiles,
-            .size = size,
-        };
-    }
-
-    pub fn deinit(this: @This()) void {
-        this.allocator.free(this.tiles);
-    }
-
-    pub fn tileIdx(this: @This(), pos: Vec2i) usize {
-        return @intCast(usize, pos.y * this.size.x + pos.x);
-    }
-
-    pub fn set(this: *@This(), pos: Vec2i, tile: u16) void {
-        const idx = this.tileIdx(pos);
-        this.tiles[idx] = tile;
-    }
-
-    pub fn get(this: @This(), pos: Vec2i) u16 {
-        if (pos.x < 0 or pos.x >= this.size.x or pos.y < 0 or pos.y >= this.size.y) return 0;
-        const idx = this.tileIdx(pos);
-        return this.tiles[idx];
-    }
-
-    pub fn render(this: @This()) void {
-        var pos = vec2i(0, 0);
-        while (pos.y < this.size.y) : (pos.y += 1) {
-            pos.x = 0;
-            while (pos.x < this.size.x) : (pos.x += 1) {
-                switch (this.tiles[this.tileIdx(pos)]) {
-                    0 => render_tile(15, pos),
-                    1 => {
-                        const up = this.get(pos.add(0, -1)) == 1;
-                        const down = this.get(pos.add(0, 1)) == 1;
-                        const right = this.get(pos.add(1, 0)) == 1;
-                        const left = this.get(pos.add(-1, 0)) == 1;
-                        if (up and down and left and right) {
-                            render_tile(85, pos);
-                        } else if (up and right) {
-                            render_tile(132, pos);
-                        } else if (up and left) {
-                            render_tile(135, pos);
-                        } else if (down and right) {
-                            render_tile(126, pos);
-                        } else if (down and left) {
-                            render_tile(129, pos);
-                        } else if (up or down) {
-                            render_tile(130, pos);
-                        } else {
-                            render_tile(127, pos);
-                        }
-                    },
-                    else => {},
-                }
-            }
-        }
-    }
-};

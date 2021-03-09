@@ -81,7 +81,7 @@ pub const FlatRenderer = struct {
         gl.deleteBuffers(1, &this.vertex_buffer_object);
     }
 
-    pub fn setSize(this: *@This(), screenSize: Vec2f) !void {
+    pub fn setSize(this: *@This(), screenSize: Vec2f) void {
         this.perspective = Mat4f.orthographic(0, screenSize.x, screenSize.y, 0, -1, 1);
     }
 
