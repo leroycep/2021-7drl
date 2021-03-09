@@ -11,10 +11,10 @@ const Room = struct {
 
     pub fn overlaps(this: @This(), other: @This()) bool {
         // Add 3, as rooms also include their walls
-        return this.pos.x <= other.pos.x + other.size.x + 2 and
-            this.pos.y <= other.pos.y + other.size.y + 2 and
-            this.pos.x + this.size.x + 2 >= other.pos.x and
-            this.pos.y + this.size.y + 2 >= other.pos.y;
+        return this.pos.x <= other.pos.x + other.size.x + 3 and
+            this.pos.y <= other.pos.y + other.size.y + 3 and
+            this.pos.x + this.size.x + 3 >= other.pos.x and
+            this.pos.y + this.size.y + 3 >= other.pos.y;
     }
 };
 
@@ -74,18 +74,14 @@ pub fn generateMap(allocator: *std.mem.Allocator, opts: Options) !Map {
     for (rooms.items) |room| {
         var y: i64 = room.pos.y;
         while (y <= room.pos.y + room.size.y) : (y += 1) {
-            map.set(vec2i(room.pos.x - 1, y), .ThickWallVertical);
-            map.set(vec2i(room.pos.x + room.size.x + 1, y), .ThickWallVertical);
+            map.set(vec2i(room.pos.x - 1, y), .ThickWall);
+            map.set(vec2i(room.pos.x + room.size.x + 1, y), .ThickWall);
         }
-        var x: i64 = room.pos.x;
-        while (x <= room.pos.x + room.size.x) : (x += 1) {
-            map.set(vec2i(x, room.pos.y - 1), .ThickWallHorizontal);
-            map.set(vec2i(x, room.pos.y + room.size.y + 1), .ThickWallHorizontal);
+        var x: i64 = room.pos.x - 1;
+        while (x <= room.pos.x + room.size.x + 1) : (x += 1) {
+            map.set(vec2i(x, room.pos.y - 1), .ThickWall);
+            map.set(vec2i(x, room.pos.y + room.size.y + 1), .ThickWall);
         }
-        map.set(vec2i(room.pos.x - 1, room.pos.y - 1), .ThickWallDownRight);
-        map.set(vec2i(room.pos.x + room.size.x + 1, room.pos.y - 1), .ThickWallDownLeft);
-        map.set(vec2i(room.pos.x + room.size.x + 1, room.pos.y + room.size.y + 1), .ThickWallUpLeft);
-        map.set(vec2i(room.pos.x - 1, room.pos.y + room.size.y + 1), .ThickWallUpRight);
     }
 
     return map;

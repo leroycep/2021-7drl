@@ -76,7 +76,7 @@ pub fn onInit() !void {
         },
     });
 
-    {
+    if (false) {
         var y: i32 = 0;
         while (y < map.size.y) : (y += 1) {
             map.set(vec2i(0, y), .ThickWallVertical);

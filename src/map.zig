@@ -4,6 +4,7 @@ const math = @import("math");
 const Vec2i = math.Vec(2, i64);
 const vec2i = Vec2i.init;
 const render_tile = @import("./main.zig").render_tile;
+const Neighbors = tile.Neighbors;
 
 pub const Map = struct {
     allocator: *std.mem.Allocator,
@@ -52,8 +53,30 @@ pub const Map = struct {
             while (pos.x < this.size.x) : (pos.x += 1) {
                 const tag = this.tiles[this.tileIdx(pos)];
                 const desc = tile.DESCRIPTIONS[@enumToInt(tag)];
-                if (desc.texture) |texture| {
-                    render_tile(texture, pos);
+                switch (desc.render) {
+                    .Static => |tid| render_tile(tid, pos),
+                    .Connected => |tids| {
+                        const neighbors = Neighbors{
+                            .n = this.get(pos.add(0, -1)) == tag,
+                            .e = this.get(pos.add(1, 0)) == tag,
+                            .s = this.get(pos.add(0, 1)) == tag,
+                            .w = this.get(pos.add(-1, 0)) == tag,
+                        };
+                        const idx: usize = switch (neighbors.toConnection()) {
+                            .None => 0,
+                            .North => 1,
+                            .East => 2,
+                            .South => 3,
+                            .West => 4,
+                            .NorthSouth, .NorthSouthEast, .NorthSouthWest, .NorthSouthEastWest => 5,
+                            .NorthEast => 6,
+                            .NorthWest => 7,
+                            .SouthEast => 8,
+                            .SouthWest => 9,
+                            .EastWest, .NorthEastWest, .SouthEastWest => 10,
+                        };
+                        render_tile(tids[idx], pos);
+                    },
                 }
             }
         }
