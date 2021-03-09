@@ -5,24 +5,8 @@ const vec2i = Vec2i.init;
 
 pub const Tag = enum(u16) {
     Empty,
-
-    WallDownRight,
-    WallDownLeft,
-    WallUpRight,
-    WallUpLeft,
-    WallHorizontal,
-    WallVerticalLeft,
-    WallVerticalRight,
-    WallDownRightSquare,
-    WallDownLeftSquare,
-    WallDownRightT,
-    WallDownLeftT,
-
-    WallDoor0,
-
-    ThickWall,
-
-    ThickWallDoor0,
+    Floor,
+    Wall,
 };
 
 pub const Desc = struct {
@@ -31,9 +15,15 @@ pub const Desc = struct {
 };
 
 pub const RenderInfo = union(enum) {
-    Static: u16,
+    None: void,
+    Static: TID,
     // Connects with similar blocks
-    Connected: [11]u16,
+    Connected: [11]TID,
+};
+
+pub const TID = struct {
+    pos: u16,
+    rot: u2 = 0,
 };
 
 pub const Neighbors = packed struct {
@@ -69,7 +59,7 @@ pub const Connection = enum(u4) {
     SouthEastWest = 0b1110,
 
     NorthSouthEastWest = 0b1111,
-    
+
     pub fn toNeighbors(this: @This()) Neighbors {
         return @bitCast(Neighbors, @enumToInt(this));
     }
@@ -87,95 +77,18 @@ pub const DESCRIPTIONS = comptime gen_descs: {
 
     desc[@enumToInt(Tag.Empty)] = .{
         .solid = false,
-        .render = .{ .Static = 15 },
+        .render = .None,
     };
 
-    desc[@enumToInt(Tag.WallDownRight)] = .{
-        .solid = true,
-        .render = .{ .Static = 0 },
-    };
-
-    desc[@enumToInt(Tag.WallDownLeft)] = .{
-        .solid = true,
-        .render = .{ .Static = 3 },
-    };
-
-    desc[@enumToInt(Tag.WallUpRight)] = .{
-        .solid = true,
-        .render = .{ .Static = 28 },
-    };
-
-    desc[@enumToInt(Tag.WallUpLeft)] = .{
-        .solid = true,
-        .render = .{ .Static = 31 },
-    };
-
-    desc[@enumToInt(Tag.WallHorizontal)] = .{
-        .solid = true,
-        .render = .{ .Static = 1 },
-    };
-
-    desc[@enumToInt(Tag.WallVerticalLeft)] = .{
-        .solid = true,
-        .render = .{ .Static = 14 },
-    };
-
-    desc[@enumToInt(Tag.WallVerticalRight)] = .{
-        .solid = true,
-        .render = .{ .Static = 17 },
-    };
-
-    desc[@enumToInt(Tag.WallDownRightSquare)] = .{
-        .solid = true,
-        .render = .{ .Static = 56 },
-    };
-
-    desc[@enumToInt(Tag.WallDownLeftSquare)] = .{
-        .solid = true,
-        .render = .{ .Static = 57 },
-    };
-
-    desc[@enumToInt(Tag.WallDownRightT)] = .{
-        .solid = true,
-        .render = .{ .Static = 70 },
-    };
-
-    desc[@enumToInt(Tag.WallDownLeftT)] = .{
-        .solid = true,
-        .render = .{ .Static = 71 },
-    };
-
-    desc[@enumToInt(Tag.WallDoor0)] = .{
+    desc[@enumToInt(Tag.Floor)] = .{
         .solid = false,
-        .render = .{ .Static = 2 },
+        .render = .{ .Static = .{ .pos = 0 } },
     };
 
     // Thick Wall
-    desc[@enumToInt(Tag.ThickWall)] = .{
+    desc[@enumToInt(Tag.Wall)] = .{
         .solid = true,
-        .render = .{
-            .Connected = .{
-                127,
-                130,
-                127,
-                130,
-                127,
-
-                130,
-
-                132,
-                135,
-                126,
-                129,
-
-                127,
-            },
-        },
-    };
-
-    desc[@enumToInt(Tag.ThickWallDoor0)] = .{
-        .solid = true,
-        .render = .{ .Static = 128 },
+        .render = .{ .Static = .{ .pos = 826 } },
     };
 
     break :gen_descs desc;

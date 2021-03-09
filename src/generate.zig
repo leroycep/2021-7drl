@@ -70,19 +70,70 @@ pub fn generateMap(allocator: *std.mem.Allocator, opts: Options) !Map {
         }
     }
 
-    // Put rooms into the tile map
+    // Carve out tunnels
+    for (rooms.items) |room, idx| {
+        if (idx == 0) continue;
+
+        const prev_room = rooms.items[idx - 1];
+
+        const pos_a = prev_room.pos.addv(prev_room.size.scaleDivFloor(2));
+        const pos_b = room.pos.addv(room.size.scaleDivFloor(2));
+
+        if (rand.boolean()) {
+            create_h_tunnel(&map, pos_a.x, pos_b.x, pos_a.y);
+            create_v_tunnel(&map, pos_a.y, pos_b.y, pos_b.x);
+
+            const center = vec2i(pos_b.x, pos_a.y);
+            map.setIfEmpty(center.add(-1, -1), .Wall);
+            map.setIfEmpty(center.add(-1, 0), .Wall);
+            map.setIfEmpty(center.add(-1, 1), .Wall);
+            map.setIfEmpty(center.add(0, -1), .Wall);
+            map.setIfEmpty(center.add(0, 0), .Wall);
+            map.setIfEmpty(center.add(0, 1), .Wall);
+            map.setIfEmpty(center.add(1, -1), .Wall);
+            map.setIfEmpty(center.add(1, 0), .Wall);
+            map.setIfEmpty(center.add(1, 1), .Wall);
+        } else {
+            create_v_tunnel(&map, pos_a.y, pos_b.y, pos_a.x);
+            create_h_tunnel(&map, pos_a.x, pos_b.x, pos_b.y);
+
+            const center = vec2i(pos_a.x, pos_b.y);
+            map.setIfEmpty(center.add(-1, -1), .Wall);
+            map.setIfEmpty(center.add(-1, 0), .Wall);
+            map.setIfEmpty(center.add(-1, 1), .Wall);
+            map.setIfEmpty(center.add(0, -1), .Wall);
+            map.setIfEmpty(center.add(0, 0), .Wall);
+            map.setIfEmpty(center.add(0, 1), .Wall);
+            map.setIfEmpty(center.add(1, -1), .Wall);
+            map.setIfEmpty(center.add(1, 0), .Wall);
+            map.setIfEmpty(center.add(1, 1), .Wall);
+        }
+    }
+
+    // Carve out rooms
     for (rooms.items) |room| {
         var y: i64 = room.pos.y;
         while (y <= room.pos.y + room.size.y) : (y += 1) {
-            map.set(vec2i(room.pos.x - 1, y), .ThickWall);
-            map.set(vec2i(room.pos.x + room.size.x + 1, y), .ThickWall);
+            map.setIfEmpty(vec2i(room.pos.x - 1, y), .Wall);
+            map.setIfEmpty(vec2i(room.pos.x + room.size.x + 1, y), .Wall);
         }
         var x: i64 = room.pos.x - 1;
         while (x <= room.pos.x + room.size.x + 1) : (x += 1) {
-            map.set(vec2i(x, room.pos.y - 1), .ThickWall);
-            map.set(vec2i(x, room.pos.y + room.size.y + 1), .ThickWall);
+            map.setIfEmpty(vec2i(x, room.pos.y - 1), .Wall);
+            map.setIfEmpty(vec2i(x, room.pos.y + room.size.y + 1), .Wall);
+        }
+
+        // Empty room
+        var pos = room.pos;
+        while (pos.y <= room.pos.y + room.size.y) : (pos.y += 1) {
+            pos.x = room.pos.x;
+            while (pos.x <= room.pos.x + room.size.x) : (pos.x += 1) {
+                map.set(pos, .Floor);
+            }
         }
     }
+
+    map.spawn = rooms.items[0].pos.addv(rooms.items[0].size.scaleDivFloor(2));
 
     return map;
 }
@@ -94,4 +145,32 @@ fn overlaps(rooms: []const Room, probe: Room) bool {
         }
     }
     return false;
+}
+
+fn create_h_tunnel(map: *Map, x0: i64, x1: i64, y: i64) void {
+    const startx = if (x0 < x1) x0 else x1;
+    const endx = if (x0 < x1) x1 else x0;
+
+    var x = startx;
+    while (x < endx) : (x += 1) {
+        map.setIfEmpty(vec2i(x, y - 1), .Wall);
+        map.setIfEmpty(vec2i(x, y + 1), .Wall);
+        if (map.get(vec2i(x, y)) != .Floor) {
+            map.set(vec2i(x, y), .Floor);
+        }
+    }
+}
+
+fn create_v_tunnel(map: *Map, y0: i64, y1: i64, x: i64) void {
+    const starty = if (y0 < y1) y0 else y1;
+    const endy = if (y0 < y1) y1 else y0;
+
+    var y = starty;
+    while (y < endy) : (y += 1) {
+        map.setIfEmpty(vec2i(x - 1, y), .Wall);
+        map.setIfEmpty(vec2i(x + 1, y), .Wall);
+        if (map.get(vec2i(x, y)) != .Floor) {
+            map.set(vec2i(x, y), .Floor);
+        }
+    }
 }

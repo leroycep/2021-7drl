@@ -10,6 +10,7 @@ pub const Map = struct {
     allocator: *std.mem.Allocator,
     tiles: []tile.Tag,
     size: Vec2i,
+    spawn: Vec2i,
 
     pub fn init(alloc: *std.mem.Allocator, size: Vec2i) !@This() {
         const tiles = try alloc.alloc(tile.Tag, @intCast(usize, size.x * size.y));
@@ -19,6 +20,7 @@ pub const Map = struct {
             .allocator = alloc,
             .tiles = tiles,
             .size = size,
+            .spawn = vec2i(0, 0),
         };
     }
 
@@ -33,6 +35,13 @@ pub const Map = struct {
     pub fn set(this: *@This(), pos: Vec2i, tag: tile.Tag) void {
         const idx = this.tileIdx(pos);
         this.tiles[idx] = tag;
+    }
+
+    pub fn setIfEmpty(this: *@This(), pos: Vec2i, tag: tile.Tag) void {
+        const idx = this.tileIdx(pos);
+        if (this.tiles[idx] == .Empty) {
+            this.tiles[idx] = tag;
+        }
     }
 
     pub fn get(this: @This(), pos: Vec2i) tile.Tag {
@@ -54,6 +63,7 @@ pub const Map = struct {
                 const tag = this.tiles[this.tileIdx(pos)];
                 const desc = tile.DESCRIPTIONS[@enumToInt(tag)];
                 switch (desc.render) {
+                    .None => {},
                     .Static => |tid| render_tile(tid, pos),
                     .Connected => |tids| {
                         const neighbors = Neighbors{

@@ -40,10 +40,8 @@ pub fn main() void {
 }
 
 // Constants
-const TILESET_W = 112;
-const TILESET_H = 80;
-const TILE_W = 8;
-const TILE_H = 8;
+const TILE_W = 16;
+const TILE_H = 16;
 
 // Global variables
 var gpa = std.heap.GeneralPurposeAllocator(.{ .safety = (std.builtin.os.tag != .freestanding) }){};
@@ -58,7 +56,7 @@ var playerMove = vec2i(0, 0);
 pub fn onInit() !void {
     std.log.info("app init", .{});
 
-    var load_tileset = async Texture.initFromFile(allocator, "colored_tilemap_packed.png");
+    var load_tileset = async Texture.initFromFile(allocator, "colored_packed.png");
 
     // == Load tileset
     tilesetTex = try await load_tileset;
@@ -76,22 +74,7 @@ pub fn onInit() !void {
         },
     });
 
-    if (false) {
-        var y: i32 = 0;
-        while (y < map.size.y) : (y += 1) {
-            map.set(vec2i(0, y), .ThickWallVertical);
-            map.set(vec2i(map.size.x - 1, y), .ThickWallVertical);
-        }
-        var x: i32 = 0;
-        while (x < map.size.x) : (x += 1) {
-            map.set(vec2i(x, 0), .ThickWallHorizontal);
-            map.set(vec2i(x, map.size.y - 1), .ThickWallHorizontal);
-        }
-        map.set(vec2i(0, 0), .ThickWallDownRight);
-        map.set(vec2i(map.size.x - 1, 0), .ThickWallDownLeft);
-        map.set(vec2i(map.size.x - 1, map.size.y - 1), .ThickWallUpLeft);
-        map.set(vec2i(0, map.size.y - 1), .ThickWallUpRight);
-    }
+    playerPos = map.spawn;
 }
 
 fn onDeinit() void {
@@ -136,16 +119,18 @@ pub fn render(alpha: f64) !void {
     gl.viewport(0, 0, screen_size_int.x, screen_size_int.y);
 
     map.render();
-    render_tile(4, playerPos);
+    render_tile(.{ .pos = 25 }, playerPos);
     flatRenderer.flush();
 }
 
-pub fn render_tile(id: u16, pos: Vec2i) void {
-    const tileposy = id / (TILESET_W / TILE_W);
-    const tileposx = id - (tileposy * (TILESET_W / TILE_W));
+pub fn render_tile(tid: tile.TID, pos: Vec2i) void {
+    const id = tid.pos;
 
-    const texpos1 = vec2f(@intToFloat(f32, tileposx) / @intToFloat(f32, TILESET_W / TILE_W), @intToFloat(f32, tileposy) / @intToFloat(f32, TILESET_H / TILE_H));
-    const texpos2 = vec2f(@intToFloat(f32, tileposx + 1) / @intToFloat(f32, TILESET_W / TILE_W), @intToFloat(f32, tileposy + 1) / @intToFloat(f32, TILESET_H / TILE_H));
+    const tileposy = id / (tilesetTex.size.x / TILE_W);
+    const tileposx = id - (tileposy * (tilesetTex.size.x / TILE_W));
+
+    const texpos1 = vec2f(@intToFloat(f32, tileposx) / @intToFloat(f32, tilesetTex.size.x / TILE_W), @intToFloat(f32, tileposy) / @intToFloat(f32, tilesetTex.size.y / TILE_H));
+    const texpos2 = vec2f(@intToFloat(f32, tileposx + 1) / @intToFloat(f32, tilesetTex.size.x / TILE_W), @intToFloat(f32, tileposy + 1) / @intToFloat(f32, tilesetTex.size.y / TILE_H));
 
     flatRenderer.drawTextureRect(tilesetTex, texpos1, texpos2, pos.scale(16).intToFloat(f32), vec2f(16, 16)) catch unreachable;
 }
