@@ -180,6 +180,10 @@ pub fn fetch(allocator: *std.mem.Allocator, file_name: []const u8) FetchError![]
     return contents;
 }
 
+pub fn randomBytes(slice: []u8) void {
+    std.crypto.random.bytes(slice);
+}
+
 fn MessageCallback(source: gl.GLenum, msgtype: gl.GLenum, id: gl.GLuint, severity: gl.GLenum, len: gl.GLsizei, msg: [*c]const gl.GLchar, userParam: ?*const c_void) callconv(.C) void {
     // const MessageCallback: gl.GLDEBUGPROC = {
     const msg_slice = msg[0..@intCast(usize, len)];

@@ -145,8 +145,7 @@ pub fn run(comptime app: App) void {
     };
 }
 
-pub fn quit() void {
-}
+pub fn quit() void {}
 
 // TODO: Wrangle
 const platform = @import("../platform.zig");
@@ -243,4 +242,10 @@ export fn wasm_error_name_ptr(errno: std.meta.Int(.unsigned, @sizeOf(anyerror) *
 
 export fn wasm_error_name_len(errno: std.meta.Int(.unsigned, @sizeOf(anyerror) * 8)) usize {
     return @errorName(@intToError(errno)).len;
+}
+
+// Random bytes
+extern fn platform_random_bytes(ptr: [*]u8, len: usize) void;
+pub fn randomBytes(slice: []u8) void {
+    platform_random_bytes(slice.ptr, slice.len);
 }

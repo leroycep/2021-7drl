@@ -332,6 +332,10 @@ export default function getPlatformEnv(canvas_element, getInstance) {
                         instance.exports.wasm_fail_fetch(cb, ctx, ERRNO_UNKNOWN)
                 );
         },
+        platform_random_bytes(ptr, len) {
+            const bytes = new Uint8Array(getMemory().buffer, ptr, len);
+            window.crypto.getRandomValues(bytes);
+        },
 
         getScreenW() {
             return gl.drawingBufferWidth;

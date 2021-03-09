@@ -4,6 +4,7 @@ const math = @import("math");
 const Vec2i = math.Vec(2, i64);
 const vec2i = Vec2i.init;
 const Map = @import("./map.zig").Map;
+const platform = @import("platform");
 
 const Room = struct {
     pos: Vec2i,
@@ -42,7 +43,7 @@ pub fn generateMap(allocator: *std.mem.Allocator, opts: Options) !Map {
     if (opts.seed) |seed_given| {
         seed = seed_given;
     } else {
-        std.crypto.random.bytes(std.mem.asBytes(&seed));
+        platform.randomBytes(std.mem.asBytes(&seed));
     }
 
     var rng = std.rand.DefaultPrng.init(seed);
