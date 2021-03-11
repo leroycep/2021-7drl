@@ -107,6 +107,22 @@ pub fn onEvent(event: platform.event.Event) !void {
         playerPos = playerPos.addv(playerMove);
     }
     playerMove = vec2i(0, 0);
+
+    if (map.get(playerPos) == .StairsDown) {
+        map.deinit();
+
+        // Create map
+        map = try generate.generateMap(allocator, .{
+            .size = vec2i(50, 50),
+            .max_rooms = 50,
+            .room_size_range = .{
+                .min = 3,
+                .max = 10,
+            },
+        });
+
+        playerPos = map.spawn;
+    }
 }
 
 pub fn render(alpha: f64) !void {

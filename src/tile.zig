@@ -7,6 +7,7 @@ pub const Tag = enum(u16) {
     Empty,
     Floor,
     Wall,
+    StairsDown,
 };
 
 pub const Desc = struct {
@@ -89,6 +90,12 @@ pub const DESCRIPTIONS = comptime gen_descs: {
     desc[@enumToInt(Tag.Wall)] = .{
         .solid = true,
         .render = .{ .Static = .{ .pos = 826 } },
+    };
+
+    // Stairs Down
+    desc[@enumToInt(Tag.StairsDown)] = .{
+        .solid = false,
+        .render = .{ .Static = .{ .pos = 291 } },
     };
 
     break :gen_descs desc;

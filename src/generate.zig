@@ -134,6 +134,15 @@ pub fn generateMap(allocator: *std.mem.Allocator, opts: Options) !Map {
 
     map.spawn = rooms.items[0].pos.addv(rooms.items[0].size.scaleDivFloor(2));
 
+    {
+        const last_room = rooms.items[rooms.items.len - 1];
+        const pos_in_room = Vec2i{
+            .x = rand.intRangeAtMostBiased(i64, 0, last_room.size.x),
+            .y = rand.intRangeAtMostBiased(i64, 0, last_room.size.y),
+        };
+        map.set(last_room.pos.addv(pos_in_room), .StairsDown);
+    }
+
     return map;
 }
 
