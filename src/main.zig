@@ -13,6 +13,7 @@ const Map = @import("./map.zig").Map;
 const tile = @import("./tile.zig");
 const generate = @import("./generate.zig");
 const Mat4f = math.Mat4(f32);
+const Font = @import("./font_render.zig").BitmapFontRenderer;
 
 // Setup environment
 pub const panic = platform.panic;
@@ -50,6 +51,7 @@ const allocator = &gpa.allocator;
 
 var tilesetTex: Texture = undefined;
 var flatRenderer: FlatRenderer = undefined;
+var font: Font = undefined;
 var map: Map = undefined;
 var playerPos = vec2i(10, 10);
 var playerMove = vec2i(0, 0);
@@ -58,12 +60,15 @@ pub fn onInit() !void {
     std.log.info("app init", .{});
 
     var load_tileset = async Texture.initFromFile(allocator, "colored_packed.png");
+    var load_font = async Font.initFromFile(allocator, "PressStart2P_8.fnt");
 
     // == Load tileset
     tilesetTex = try await load_tileset;
 
     // == Initialize renderer
     flatRenderer = try FlatRenderer.init(allocator, platform.getScreenSize().intToFloat(f32));
+
+    font = try await load_font;
 
     // Create map
     map = try generate.generateMap(allocator, .{
@@ -81,6 +86,7 @@ pub fn onInit() !void {
 fn onDeinit() void {
     std.log.info("app deinit", .{});
     map.deinit();
+    font.deinit();
     flatRenderer.deinit();
     _ = gpa.deinit();
 }
@@ -136,9 +142,12 @@ pub fn render(alpha: f64) !void {
     const cam_pos = playerPos.scale(16).intToFloat(f32).subv(cam_size.scaleDiv(2));
 
     flatRenderer.perspective = Mat4f.orthographic(cam_pos.x, cam_pos.x + cam_size.x, cam_pos.y + cam_size.y, cam_pos.y, -1, 1);
-
     map.render(&flatRenderer);
     render_tile(&flatRenderer, .{ .pos = 25 }, playerPos);
+    flatRenderer.flush();
+
+    flatRenderer.perspective = Mat4f.orthographic(0, cam_size.x, cam_size.y, 0, -1, 1);
+    try font.drawText(&flatRenderer, "Hello!", vec2f(10, 10), .{});
     flatRenderer.flush();
 }
 
