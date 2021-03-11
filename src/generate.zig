@@ -89,7 +89,6 @@ pub fn generateMap(allocator: *std.mem.Allocator, opts: Options) !Map {
             map.setIfEmpty(center.add(-1, 0), .Wall);
             map.setIfEmpty(center.add(-1, 1), .Wall);
             map.setIfEmpty(center.add(0, -1), .Wall);
-            map.setIfEmpty(center.add(0, 0), .Wall);
             map.setIfEmpty(center.add(0, 1), .Wall);
             map.setIfEmpty(center.add(1, -1), .Wall);
             map.setIfEmpty(center.add(1, 0), .Wall);
@@ -103,7 +102,6 @@ pub fn generateMap(allocator: *std.mem.Allocator, opts: Options) !Map {
             map.setIfEmpty(center.add(-1, 0), .Wall);
             map.setIfEmpty(center.add(-1, 1), .Wall);
             map.setIfEmpty(center.add(0, -1), .Wall);
-            map.setIfEmpty(center.add(0, 0), .Wall);
             map.setIfEmpty(center.add(0, 1), .Wall);
             map.setIfEmpty(center.add(1, -1), .Wall);
             map.setIfEmpty(center.add(1, 0), .Wall);
@@ -153,7 +151,7 @@ fn create_h_tunnel(map: *Map, x0: i64, x1: i64, y: i64) void {
     const endx = if (x0 < x1) x1 else x0;
 
     var x = startx;
-    while (x < endx) : (x += 1) {
+    while (x <= endx) : (x += 1) {
         map.setIfEmpty(vec2i(x, y - 1), .Wall);
         map.setIfEmpty(vec2i(x, y + 1), .Wall);
         if (map.get(vec2i(x, y)) != .Floor) {
@@ -167,7 +165,7 @@ fn create_v_tunnel(map: *Map, y0: i64, y1: i64, x: i64) void {
     const endy = if (y0 < y1) y1 else y0;
 
     var y = starty;
-    while (y < endy) : (y += 1) {
+    while (y <= endy) : (y += 1) {
         map.setIfEmpty(vec2i(x - 1, y), .Wall);
         map.setIfEmpty(vec2i(x + 1, y), .Wall);
         if (map.get(vec2i(x, y)) != .Floor) {
