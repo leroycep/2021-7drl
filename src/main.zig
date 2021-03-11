@@ -12,6 +12,7 @@ const Texture = @import("./texture.zig").Texture;
 const Map = @import("./map.zig").Map;
 const tile = @import("./tile.zig");
 const generate = @import("./generate.zig");
+const Mat4f = math.Mat4(f32);
 
 // Setup environment
 pub const panic = platform.panic;
@@ -109,21 +110,23 @@ pub fn onEvent(event: platform.event.Event) !void {
 }
 
 pub fn render(alpha: f64) !void {
-    const screen_size_int = platform.getScreenSize();
-    const screen_size = screen_size_int.intToFloat(f32);
-
-    flatRenderer.setSize(screen_size);
+    const screen_size = platform.getScreenSize();
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.viewport(0, 0, screen_size_int.x, screen_size_int.y);
+    gl.viewport(0, 0, screen_size.x, screen_size.y);
 
-    map.render();
-    render_tile(.{ .pos = 25 }, playerPos);
+    const cam_size = screen_size.intToFloat(f32);
+    const cam_pos = playerPos.scale(16).intToFloat(f32).subv(cam_size.scaleDiv(2));
+
+    flatRenderer.perspective = Mat4f.orthographic(cam_pos.x, cam_pos.x + cam_size.x, cam_pos.y + cam_size.y, cam_pos.y, -1, 1);
+
+    map.render(&flatRenderer);
+    render_tile(&flatRenderer, .{ .pos = 25 }, playerPos);
     flatRenderer.flush();
 }
 
-pub fn render_tile(tid: tile.TID, pos: Vec2i) void {
+pub fn render_tile(fr: *FlatRenderer, tid: tile.TID, pos: Vec2i) void {
     const id = tid.pos;
 
     const tileposy = id / (tilesetTex.size.x / TILE_W);
@@ -132,5 +135,5 @@ pub fn render_tile(tid: tile.TID, pos: Vec2i) void {
     const texpos1 = vec2f(@intToFloat(f32, tileposx) / @intToFloat(f32, tilesetTex.size.x / TILE_W), @intToFloat(f32, tileposy) / @intToFloat(f32, tilesetTex.size.y / TILE_H));
     const texpos2 = vec2f(@intToFloat(f32, tileposx + 1) / @intToFloat(f32, tilesetTex.size.x / TILE_W), @intToFloat(f32, tileposy + 1) / @intToFloat(f32, tilesetTex.size.y / TILE_H));
 
-    flatRenderer.drawTextureRect(tilesetTex, texpos1, texpos2, pos.scale(16).intToFloat(f32), vec2f(16, 16)) catch unreachable;
+    fr.drawTextureRect(tilesetTex, texpos1, texpos2, pos.scale(16).intToFloat(f32), vec2f(16, 16)) catch unreachable;
 }

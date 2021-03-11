@@ -5,6 +5,7 @@ const Vec2i = math.Vec(2, i64);
 const vec2i = Vec2i.init;
 const render_tile = @import("./main.zig").render_tile;
 const Neighbors = tile.Neighbors;
+const FlatRenderer = @import("./flat_render.zig").FlatRenderer;
 
 pub const Map = struct {
     allocator: *std.mem.Allocator,
@@ -55,7 +56,7 @@ pub const Map = struct {
         return tile.DESCRIPTIONS[@enumToInt(tag)];
     }
 
-    pub fn render(this: @This()) void {
+    pub fn render(this: @This(), flatRenderer: *FlatRenderer) void {
         var pos = vec2i(0, 0);
         while (pos.y < this.size.y) : (pos.y += 1) {
             pos.x = 0;
@@ -64,7 +65,7 @@ pub const Map = struct {
                 const desc = tile.DESCRIPTIONS[@enumToInt(tag)];
                 switch (desc.render) {
                     .None => {},
-                    .Static => |tid| render_tile(tid, pos),
+                    .Static => |tid| render_tile(flatRenderer, tid, pos),
                     .Connected => |tids| {
                         const neighbors = Neighbors{
                             .n = this.get(pos.add(0, -1)) == tag,
@@ -85,7 +86,7 @@ pub const Map = struct {
                             .SouthWest => 9,
                             .EastWest, .NorthEastWest, .SouthEastWest => 10,
                         };
-                        render_tile(tids[idx], pos);
+                        render_tile(flatRenderer, tids[idx], pos);
                     },
                 }
             }
