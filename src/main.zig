@@ -14,7 +14,6 @@ const tile = @import("./tile.zig");
 const generate = @import("./generate.zig");
 const Mat4f = math.Mat4(f32);
 const Font = @import("./font_render.zig").BitmapFontRenderer;
-const ecs = @import("ecs");
 const component = @import("./component.zig");
 
 // Setup environment
@@ -86,13 +85,11 @@ pub fn onInit() !void {
         },
     });
 
-    registry = ecs.Registry.init(allocator);
-
-    var player = registry.create();
-    registry.add(player, component.Position{ .pos = map.spawn });
-    registry.add(player, component.Movement{ .vel = vec2i(0, 0) });
-    registry.add(player, component.Render{ .tid = 25 });
-    registry.add(player, component.PlayerControl{});
+    var player = map.registry.create();
+    map.registry.add(player, component.Position{ .pos = map.spawn });
+    map.registry.add(player, component.Movement{ .vel = vec2i(0, 0) });
+    map.registry.add(player, component.Render{ .tid = 25 });
+    map.registry.add(player, component.PlayerControl{});
     camPos = map.spawn;
     try update_fov();
 
@@ -101,7 +98,6 @@ pub fn onInit() !void {
 
 fn onDeinit() void {
     std.log.info("app deinit", .{});
-    registry.deinit();
     map.deinit();
     adventureLog.deinit();
     font.deinit();
@@ -135,7 +131,7 @@ pub fn onEvent(event: platform.event.Event) !void {
     var changing_levels = false;
     var player_moved = false;
     {
-        var view = registry.view(.{ component.PlayerControl, component.Position }, .{});
+        var view = map.registry.view(.{ component.PlayerControl, component.Position }, .{});
         var iter = view.iterator();
         while (iter.next()) |entity| {
             const pos = view.get(component.Position, entity);
@@ -166,16 +162,12 @@ pub fn onEvent(event: platform.event.Event) !void {
             },
         });
 
-        var iter = registry.entities();
-        while (iter.next()) |entity| {
-            if (registry.has(component.PlayerControl, entity)) {
-                const pos = registry.get(component.Position, entity);
-                pos.pos = map.spawn;
-                camPos = pos.pos;
-            } else {
-                registry.destroy(entity);
-            }
-        }
+        var player = map.registry.create();
+        map.registry.add(player, component.Position{ .pos = map.spawn });
+        map.registry.add(player, component.Movement{ .vel = vec2i(0, 0) });
+        map.registry.add(player, component.Render{ .tid = 25 });
+        map.registry.add(player, component.PlayerControl{});
+        camPos = map.spawn;
     }
 
     if (player_moved) {
@@ -186,7 +178,7 @@ pub fn onEvent(event: platform.event.Event) !void {
 fn update_fov() !void {
     map.visible.clearRetainingCapacity();
 
-    var view = registry.view(.{ component.Position, component.PlayerControl }, .{});
+    var view = map.registry.view(.{ component.Position, component.PlayerControl }, .{});
     var iter = view.iterator();
     while (iter.next()) |entity| {
         const pos = view.getConst(component.Position, entity);
@@ -215,7 +207,7 @@ pub fn render(alpha: f64) !void {
 
     // Render entities
     {
-        var view = registry.view(.{ component.Position, component.Render }, .{});
+        var view = map.registry.view(.{ component.Position, component.Render }, .{});
         var iter = view.iterator();
         while (iter.next()) |entity| {
             const pos = view.getConst(component.Position, entity);

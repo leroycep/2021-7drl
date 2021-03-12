@@ -7,6 +7,7 @@ const render_tile = @import("./main.zig").render_tile;
 const Neighbors = tile.Neighbors;
 const FlatRenderer = @import("./flat_render.zig").FlatRenderer;
 const ArrayDeque = @import("./array_deque.zig").ArrayDeque;
+const ecs = @import("ecs");
 
 pub const Map = struct {
     allocator: *std.mem.Allocator,
@@ -15,6 +16,7 @@ pub const Map = struct {
     spawn: Vec2i,
     explored: std.AutoArrayHashMap(Vec2i, void),
     visible: std.AutoArrayHashMap(Vec2i, void),
+    registry: ecs.Registry,
 
     pub fn init(alloc: *std.mem.Allocator, size: Vec2i) !@This() {
         const tiles = try alloc.alloc(tile.Tag, @intCast(usize, size.x * size.y));
@@ -27,10 +29,12 @@ pub const Map = struct {
             .spawn = vec2i(0, 0),
             .explored = std.AutoArrayHashMap(Vec2i, void).init(alloc),
             .visible = std.AutoArrayHashMap(Vec2i, void).init(alloc),
+            .registry = ecs.Registry.init(alloc),
         };
     }
 
     pub fn deinit(this: *@This()) void {
+        this.registry.deinit();
         this.visible.deinit();
         this.explored.deinit();
         this.allocator.free(this.tiles);
