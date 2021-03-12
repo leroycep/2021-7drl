@@ -52,6 +52,8 @@ const allocator = &gpa.allocator;
 var tilesetTex: Texture = undefined;
 var flatRenderer: FlatRenderer = undefined;
 var font: Font = undefined;
+
+var adventureLog = std.ArrayList([]const u8).init(allocator);
 var map: Map = undefined;
 var playerPos = vec2i(10, 10);
 var playerMove = vec2i(0, 0);
@@ -81,11 +83,14 @@ pub fn onInit() !void {
     });
 
     playerPos = map.spawn;
+
+    try adventureLog.append("You descend into the dungeon, hoping to gain experience and treasure.");
 }
 
 fn onDeinit() void {
     std.log.info("app deinit", .{});
     map.deinit();
+    adventureLog.deinit();
     font.deinit();
     flatRenderer.deinit();
     _ = gpa.deinit();
@@ -141,13 +146,25 @@ pub fn render(alpha: f64) !void {
     const cam_size = screen_size.intToFloat(f32);
     const cam_pos = playerPos.scale(16).intToFloat(f32).subv(cam_size.scaleDiv(2));
 
+    gl.enable(gl.SCISSOR_TEST);
+    gl.scissor(0, 0, screen_size.x, screen_size.y - 50);
     flatRenderer.perspective = Mat4f.orthographic(cam_pos.x, cam_pos.x + cam_size.x, cam_pos.y + cam_size.y, cam_pos.y, -1, 1);
     map.render(&flatRenderer);
     render_tile(&flatRenderer, .{ .pos = 25 }, playerPos);
     flatRenderer.flush();
 
+    gl.disable(gl.SCISSOR_TEST);
     flatRenderer.perspective = Mat4f.orthographic(0, cam_size.x, cam_size.y, 0, -1, 1);
-    try font.drawText(&flatRenderer, "Hello!", vec2f(10, 10), .{});
+    var texty: f32 = 50;
+    var i = @intCast(isize, adventureLog.items.len) - 1;
+    while (i >= 0 and texty > 0) {
+        defer {
+            i -= 1;
+            texty -= 10;
+        }
+        const text = adventureLog.items[@intCast(usize, i)];
+        try font.drawText(&flatRenderer, text, vec2f(0, texty), .{});
+    }
     flatRenderer.flush();
 }
 

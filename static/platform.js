@@ -641,5 +641,8 @@ export default function getPlatformEnv(canvas_element, getInstance) {
         viewport(x, y, width, height) {
             gl.viewport(x, y, width, height);
         },
+        scissor(x, y, width, height) {
+            gl.scissor(x, y, width, height);
+        },
     };
 }

@@ -47,6 +47,7 @@ pub const LESS = 0x0201;
 pub const COMPILE_STATUS = 0x8B81;
 pub const INFO_LOG_LENGTH = 0x8B84;
 pub const LINK_STATUS = 0x8B82;
+pub const SCISSOR_TEST = 0x0C11;
 
 pub const TEXTURE_WRAP_S = 10242;
 pub const REPEAT = 0x2901;
@@ -127,3 +128,4 @@ pub extern fn uniformMatrix4fv(location_id: c_int, data_len: c_int, transpose: c
 pub extern fn useProgram(program_id: c_uint) void;
 pub extern fn vertexAttribPointer(attrib_location: c_uint, size: c_uint, type: c_uint, normalize: c_uint, stride: c_uint, offset: ?*const c_void) void;
 pub extern fn viewport(x: c_int, y: c_int, width: c_int, height: c_int) void;
+pub extern fn scissor(x: GLint, y: GLint, width: GLsizei, height: GLsizei) void;
