@@ -21,6 +21,7 @@ pub fn build(b: *Builder) void {
     native.addPackage(PLATFORM);
     native.addPackage(deps.pkgs.zigimg);
     native.addPackage(deps.pkgs.math);
+    native.addPackage(deps.pkgs.ecs);
     b.step("native", "Build native binary").dependOn(&native.step);
     
     const native_run = native.run();
@@ -40,6 +41,7 @@ pub fn build(b: *Builder) void {
     wasm.addPackage(PLATFORM);
     wasm.addPackage(deps.pkgs.zigimg);
     wasm.addPackage(deps.pkgs.math);
+    wasm.addPackage(deps.pkgs.ecs);
 
     const static = b.addInstallDirectory(.{
         .source_dir = "static",

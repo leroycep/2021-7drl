@@ -9,4 +9,8 @@ dependencies:
   version: branch-wasm
   name: zigimg
   main: zigimg.zig
+- type: git
+  path: https://github.com/prime31/zig-ecs.git
+  name: ecs
+  main: src/ecs.zig
 

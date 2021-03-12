@@ -14,6 +14,8 @@ const tile = @import("./tile.zig");
 const generate = @import("./generate.zig");
 const Mat4f = math.Mat4(f32);
 const Font = @import("./font_render.zig").BitmapFontRenderer;
+const ecs = @import("ecs");
+const component = @import("./component.zig");
 
 // Setup environment
 pub const panic = platform.panic;
@@ -55,8 +57,10 @@ var font: Font = undefined;
 
 var adventureLog = std.ArrayList([]const u8).init(allocator);
 var map: Map = undefined;
-var playerPos = vec2i(10, 10);
-var playerMove = vec2i(0, 0);
+var registry: ecs.Registry = undefined;
+//var playerPos = vec2i(10, 10);
+var camPos = vec2i(0, 0);
+//var playerMove = vec2i(0, 0);
 
 pub fn onInit() !void {
     std.log.info("app init", .{});
@@ -82,7 +86,13 @@ pub fn onInit() !void {
         },
     });
 
-    playerPos = map.spawn;
+    registry = ecs.Registry.init(allocator);
+
+    var player = registry.create();
+    registry.add(player, component.Position{ .pos = map.spawn });
+    registry.add(player, component.Movement{ .vel = vec2i(0, 0) });
+    registry.add(player, component.Render{ .tid = 25 });
+    registry.add(player, component.PlayerControl{});
     try update_fov();
 
     try adventureLog.append("You descend into the dungeon, hoping to gain experience and treasure.");
@@ -90,6 +100,7 @@ pub fn onInit() !void {
 
 fn onDeinit() void {
     std.log.info("app deinit", .{});
+    registry.deinit();
     map.deinit();
     adventureLog.deinit();
     font.deinit();
@@ -98,6 +109,7 @@ fn onDeinit() void {
 }
 
 pub fn onEvent(event: platform.event.Event) !void {
+    var playerMove = vec2i(0, 0);
     switch (event) {
         .KeyDown => |e| switch (e.scancode) {
             .KP_8, .W, .UP => playerMove = vec2i(0, -1),
@@ -115,37 +127,80 @@ pub fn onEvent(event: platform.event.Event) !void {
         else => {},
     }
 
-    var moved = false;
-    if (!map.get(playerPos.addv(playerMove)).solid()) {
-        playerPos = playerPos.addv(playerMove);
-        moved = true;
-    }
-    playerMove = vec2i(0, 0);
-
-    if (map.get(playerPos) == .StairsDown) {
-        map.deinit();
-
-        // Create map
-        map = try generate.generateMap(allocator, .{
-            .size = vec2i(50, 50),
-            .max_rooms = 50,
-            .room_size_range = .{
-                .min = 3,
-                .max = 10,
-            },
-        });
-
-        playerPos = map.spawn;
+    // Set all players movement equal to playerMove
+    if (!playerMove.eql(vec2i(0, 0))) {
+        var view = registry.view(.{ component.PlayerControl, component.Movement }, .{});
+        var iter = view.iterator();
+        while (iter.next()) |entity| {
+            const move = view.get(component.Movement, entity);
+            move.vel = playerMove;
+        }
     }
 
-    if (moved) {
-        try update_fov();
+    // Move entities
+    {
+        var view = registry.view(.{ component.Position, component.Movement }, .{});
+        var iter = view.iterator();
+        while (iter.next()) |entity| {
+            const pos = view.get(component.Position, entity);
+            const move = view.get(component.Movement, entity);
+
+            const new_pos = pos.pos.addv(move.vel);
+            if (!map.get(new_pos).solid()) {
+                pos.pos = new_pos;
+            }
+            move.vel = vec2i(0, 0);
+        }
     }
+
+    // Check if any players are now standing on the stairsdown, and also update the camera pos
+    {
+        var any_on_stairs = false;
+        var view = registry.view(.{ component.PlayerControl, component.Position }, .{});
+        var iter = view.iterator();
+        while (iter.next()) |entity| {
+            const pos = view.getConst(component.Position, entity);
+            if (map.get(pos.pos) == .StairsDown) {
+                any_on_stairs = true;
+                break;
+            }
+            camPos = pos.pos;
+        }
+
+        if (any_on_stairs) {
+            map.deinit();
+
+            // Create map
+            map = try generate.generateMap(allocator, .{
+                .size = vec2i(50, 50),
+                .max_rooms = 50,
+                .room_size_range = .{
+                    .min = 3,
+                    .max = 10,
+                },
+            });
+
+            iter = view.iterator();
+            while (iter.next()) |entity| {
+                const pos = view.get(component.Position, entity);
+                pos.pos = map.spawn;
+                camPos = pos.pos;
+            }
+        }
+    }
+    try update_fov();
 }
 
 fn update_fov() !void {
-    map.visible.deinit();
-    map.visible = try map.computeFOV(playerPos, 8);
+    map.visible.clearRetainingCapacity();
+
+    var view = registry.view(.{ component.Position, component.PlayerControl }, .{});
+    var iter = view.iterator();
+    while (iter.next()) |entity| {
+        const pos = view.getConst(component.Position, entity);
+        try map.computeFOV(&map.visible, pos.pos, 8);
+    }
+
     for (map.visible.items()) |entry| {
         try map.explored.put(entry.key, .{});
     }
@@ -159,13 +214,24 @@ pub fn render(alpha: f64) !void {
     gl.viewport(0, 0, screen_size.x, screen_size.y);
 
     const cam_size = screen_size.intToFloat(f32);
-    const cam_pos = playerPos.scale(16).intToFloat(f32).subv(cam_size.scaleDiv(2));
+    const cam_pos = camPos.scale(16).intToFloat(f32).subv(cam_size.scaleDiv(2));
 
     gl.enable(gl.SCISSOR_TEST);
     gl.scissor(0, 0, screen_size.x, screen_size.y - 50);
     flatRenderer.perspective = Mat4f.orthographic(cam_pos.x, cam_pos.x + cam_size.x, cam_pos.y + cam_size.y, cam_pos.y, -1, 1);
     map.render(&flatRenderer);
-    render_tile(&flatRenderer, .{ .pos = 25 }, playerPos, 1);
+
+    // Render entities
+    {
+        var view = registry.view(.{ component.Position, component.Render }, .{});
+        var iter = view.iterator();
+        while (iter.next()) |entity| {
+            const pos = view.getConst(component.Position, entity);
+            const r = view.getConst(component.Render, entity);
+            render_tile(&flatRenderer, .{ .pos = r.tid }, pos.pos, 1);
+        }
+    }
+
     flatRenderer.flush();
 
     gl.disable(gl.SCISSOR_TEST);

@@ -129,13 +129,10 @@ pub const Map = struct {
         }
     }
 
-    pub fn computeFOV(this: @This(), startingPos: Vec2i, radius: i64) !std.AutoArrayHashMap(Vec2i, void) {
+    pub fn computeFOV(this: @This(), fov: *std.AutoArrayHashMap(Vec2i, void), startingPos: Vec2i, radius: i64) !void {
         var positions_to_check = ArrayDeque(Vec2i).init(this.allocator);
         defer positions_to_check.deinit();
         try positions_to_check.push_back(startingPos);
-
-        var fov = std.AutoArrayHashMap(Vec2i, void).init(this.allocator);
-        errdefer fov.deinit();
 
         while (positions_to_check.pop_front()) |pos| {
             const dist = pos.distance(startingPos);
@@ -167,7 +164,5 @@ pub const Map = struct {
                 }
             }
         }
-
-        return fov;
     }
 };
