@@ -83,6 +83,7 @@ pub fn onInit() !void {
     });
 
     playerPos = map.spawn;
+    try update_fov();
 
     try adventureLog.append("You descend into the dungeon, hoping to gain experience and treasure.");
 }
@@ -138,11 +139,15 @@ pub fn onEvent(event: platform.event.Event) !void {
     }
 
     if (moved) {
-        map.visible.deinit();
-        map.visible = try map.computeFOV(playerPos, 8);
-        for (map.visible.items()) |entry| {
-            try map.explored.put(entry.key, .{});
-        }
+        try update_fov();
+    }
+}
+
+fn update_fov() !void {
+    map.visible.deinit();
+    map.visible = try map.computeFOV(playerPos, 8);
+    for (map.visible.items()) |entry| {
+        try map.explored.put(entry.key, .{});
     }
 }
 
