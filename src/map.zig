@@ -8,6 +8,7 @@ const Neighbors = tile.Neighbors;
 const FlatRenderer = @import("./flat_render.zig").FlatRenderer;
 const ArrayDeque = @import("./array_deque.zig").ArrayDeque;
 const ecs = @import("ecs");
+const component = @import("./component.zig");
 
 pub const Map = struct {
     allocator: *std.mem.Allocator,
@@ -60,6 +61,18 @@ pub const Map = struct {
         if (pos.x < 0 or pos.x >= this.size.x or pos.y < 0 or pos.y >= this.size.y) return .Empty;
         const idx = this.tileIdx(pos);
         return this.tiles[idx];
+    }
+
+    pub fn getEntityAtPos(this: *@This(), posToCheck: Vec2i) ?ecs.Entity {
+        var view = this.registry.view(.{component.Position}, .{});
+        for (view.data()) |entity| {
+            const pos = view.getConst(entity);
+            if (pos.pos.eql(posToCheck)) {
+                return entity;
+            }
+        }
+
+        return null;
     }
 
     pub fn render(this: @This(), flatRenderer: *FlatRenderer) void {

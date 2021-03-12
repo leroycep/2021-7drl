@@ -138,6 +138,10 @@ pub fn onEvent(event: platform.event.Event) !void {
             const pos = view.get(component.Position, entity);
 
             const new_pos = pos.pos.addv(playerMove);
+            if (map.getEntityAtPos(new_pos)) |other_entity| {
+                try adventureLog.append("You kick the rat. It seems angry.");
+                continue;
+            }
             const new_tile_tag = map.get(new_pos);
             if (!new_tile_tag.solid()) {
                 player_moved = true;
