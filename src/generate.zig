@@ -5,6 +5,7 @@ const Vec2i = math.Vec(2, i64);
 const vec2i = Vec2i.init;
 const Map = @import("./map.zig").Map;
 const platform = @import("platform");
+const component = @import("./component.zig");
 
 const Room = struct {
     pos: Vec2i,
@@ -27,6 +28,7 @@ pub const Options = struct {
         min: i64,
         max: i64,
     },
+    max_monsters_per_room: u64,
 };
 
 pub fn generateMap(allocator: *std.mem.Allocator, opts: Options) !Map {
@@ -130,6 +132,16 @@ pub fn generateMap(allocator: *std.mem.Allocator, opts: Options) !Map {
                 map.set(pos, .Floor);
             }
         }
+
+        // Place monsters in room
+        const num_monsters = rand.intRangeAtMostBiased(u64, 0, opts.max_monsters_per_room);
+        var c: u64 = 0;
+        while (c < num_monsters) : (c += 1) {
+            createRatEntity(&map, Vec2i{
+                .x = room.pos.x + rand.intRangeAtMostBiased(i64, 0, room.size.x),
+                .y = room.pos.y + rand.intRangeAtMostBiased(i64, 0, room.size.y),
+            });
+        }
     }
 
     map.spawn = rooms.items[0].pos.addv(rooms.items[0].size.scaleDivFloor(2));
@@ -181,4 +193,10 @@ fn create_v_tunnel(map: *Map, y0: i64, y1: i64, x: i64) void {
             map.set(vec2i(x, y), .Floor);
         }
     }
+}
+
+pub fn createRatEntity(map: *Map, pos: Vec2i) void {
+    var e = map.registry.create();
+    map.registry.add(e, component.Position{ .pos = pos });
+    map.registry.add(e, component.Render{ .tid = 415 });
 }

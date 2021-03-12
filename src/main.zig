@@ -83,6 +83,7 @@ pub fn onInit() !void {
             .min = 3,
             .max = 10,
         },
+        .max_monsters_per_room = 2,
     });
 
     var player = map.registry.create();
@@ -160,6 +161,7 @@ pub fn onEvent(event: platform.event.Event) !void {
                 .min = 3,
                 .max = 10,
             },
+            .max_monsters_per_room = 2,
         });
 
         var player = map.registry.create();
@@ -211,6 +213,7 @@ pub fn render(alpha: f64) !void {
         var iter = view.iterator();
         while (iter.next()) |entity| {
             const pos = view.getConst(component.Position, entity);
+            if (map.visible.get(pos.pos) == null) continue;
             const r = view.getConst(component.Render, entity);
             render_tile(&flatRenderer, .{ .pos = r.tid }, pos.pos, 1);
         }
