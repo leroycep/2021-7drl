@@ -114,8 +114,10 @@ pub fn onEvent(event: platform.event.Event) !void {
         else => {},
     }
 
+    var moved = false;
     if (!map.get(playerPos.addv(playerMove)).solid()) {
         playerPos = playerPos.addv(playerMove);
+        moved = true;
     }
     playerMove = vec2i(0, 0);
 
@@ -134,6 +136,14 @@ pub fn onEvent(event: platform.event.Event) !void {
 
         playerPos = map.spawn;
     }
+
+    if (moved) {
+        map.visible.deinit();
+        map.visible = try map.computeFOV(playerPos, 8);
+        for (map.visible.items()) |entry| {
+            try map.explored.put(entry.key, .{});
+        }
+    }
 }
 
 pub fn render(alpha: f64) !void {
@@ -150,7 +160,7 @@ pub fn render(alpha: f64) !void {
     gl.scissor(0, 0, screen_size.x, screen_size.y - 50);
     flatRenderer.perspective = Mat4f.orthographic(cam_pos.x, cam_pos.x + cam_size.x, cam_pos.y + cam_size.y, cam_pos.y, -1, 1);
     map.render(&flatRenderer);
-    render_tile(&flatRenderer, .{ .pos = 25 }, playerPos);
+    render_tile(&flatRenderer, .{ .pos = 25 }, playerPos, 1);
     flatRenderer.flush();
 
     gl.disable(gl.SCISSOR_TEST);
@@ -168,7 +178,7 @@ pub fn render(alpha: f64) !void {
     flatRenderer.flush();
 }
 
-pub fn render_tile(fr: *FlatRenderer, tid: tile.TID, pos: Vec2i) void {
+pub fn render_tile(fr: *FlatRenderer, tid: tile.TID, pos: Vec2i, opacity: f32) void {
     const id = tid.pos;
 
     const tileposy = id / (tilesetTex.size.x / TILE_W);
@@ -177,5 +187,12 @@ pub fn render_tile(fr: *FlatRenderer, tid: tile.TID, pos: Vec2i) void {
     const texpos1 = vec2f(@intToFloat(f32, tileposx) / @intToFloat(f32, tilesetTex.size.x / TILE_W), @intToFloat(f32, tileposy) / @intToFloat(f32, tilesetTex.size.y / TILE_H));
     const texpos2 = vec2f(@intToFloat(f32, tileposx + 1) / @intToFloat(f32, tilesetTex.size.x / TILE_W), @intToFloat(f32, tileposy + 1) / @intToFloat(f32, tilesetTex.size.y / TILE_H));
 
-    fr.drawTextureRect(tilesetTex, texpos1, texpos2, pos.scale(16).intToFloat(f32), vec2f(16, 16)) catch unreachable;
+    fr.drawTextureExt(tilesetTex, pos.scale(16).intToFloat(f32), .{
+        .size = vec2f(16, 16),
+        .rect = .{
+            .min = texpos1,
+            .max = texpos2,
+        },
+        .opacity = opacity,
+    }) catch unreachable;
 }

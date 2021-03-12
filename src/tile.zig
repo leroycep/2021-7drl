@@ -13,6 +13,10 @@ pub const Tag = enum(u16) {
         return DESCRIPTIONS[@enumToInt(this)].solid;
     }
 
+    pub fn transparent(this: @This()) bool {
+        return DESCRIPTIONS[@enumToInt(this)].transparent;
+    }
+
     pub fn rendering(this: @This()) RenderInfo {
         return DESCRIPTIONS[@enumToInt(this)].render;
     }
@@ -20,6 +24,7 @@ pub const Tag = enum(u16) {
 
 pub const Desc = struct {
     solid: bool,
+    transparent: bool,
     render: RenderInfo,
 };
 
@@ -86,23 +91,27 @@ pub const DESCRIPTIONS = comptime gen_descs: {
 
     desc[@enumToInt(Tag.Empty)] = .{
         .solid = false,
+        .transparent = true,
         .render = .None,
     };
 
     desc[@enumToInt(Tag.Floor)] = .{
         .solid = false,
+        .transparent = true,
         .render = .{ .Static = .{ .pos = 0 } },
     };
 
     // Thick Wall
     desc[@enumToInt(Tag.Wall)] = .{
         .solid = true,
+        .transparent = false,
         .render = .{ .Static = .{ .pos = 826 } },
     };
 
     // Stairs Down
     desc[@enumToInt(Tag.StairsDown)] = .{
         .solid = false,
+        .transparent = true,
         .render = .{ .Static = .{ .pos = 291 } },
     };
 

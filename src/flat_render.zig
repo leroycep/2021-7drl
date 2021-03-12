@@ -90,15 +90,31 @@ pub const FlatRenderer = struct {
     }
 
     pub fn drawTextureRect(this: *@This(), texture: Texture, texPos1: Vec2f, texPos2: Vec2f, pos: Vec2f, size: Vec2f) !void {
-        try this.drawGLTexture(texture.glTexture, texPos1, texPos2, pos, size);
+        try this.drawGLTexture(texture.glTexture, texPos1, texPos2, pos, size, 1);
     }
 
-    pub fn drawGLTexture(this: *@This(), texture: gl.GLuint, texPos1: Vec2f, texPos2: Vec2f, pos: Vec2f, size: Vec2f) !void {
+    pub const ExtOptions = struct {
+        size: ?Vec2f = null,
+        rect: struct {
+            min: Vec2f,
+            max: Vec2f,
+        } = .{
+            .min = vec2f(0, 0),
+            .max = vec2f(1, 1),
+        },
+        opacity: f32 = 1,
+    };
+
+    pub fn drawTextureExt(this: *@This(), texture: Texture, pos: Vec2f, opts: ExtOptions) !void {
+        const size = opts.size orelse texture.size.intToFloat(f32);
+        try this.drawGLTexture(texture.glTexture, opts.rect.min, opts.rect.max, pos, size, opts.opacity);
+    }
+
+    pub fn drawGLTexture(this: *@This(), texture: gl.GLuint, texPos1: Vec2f, texPos2: Vec2f, pos: Vec2f, size: Vec2f, opacity: f32) !void {
         if (texture != this.texture) {
             this.flush();
             this.texture = texture;
         }
-        const opacity = 1.0;
         try this.draw_buffer.appendSlice(&[_]Vertex{
             Vertex{ // top left
                 .x = pos.x,
