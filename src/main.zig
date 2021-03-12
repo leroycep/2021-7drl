@@ -147,7 +147,9 @@ pub fn onEvent(event: platform.event.Event) !void {
                 if (map.registry.tryGet(component.Fighter, other_entity)) |other_fighter| {
                     const player_fighter = map.registry.getConst(component.Fighter, entity);
                     const attack = player_fighter.attack(&map, other_entity, other_fighter);
-                    if (attack.damage) |damage_dealt| {
+                    if (attack.otherDead) {
+                        try adventureLog.append(try std.fmt.allocPrint(&textArena.allocator, "You kill the {s}", .{attack.otherName}));
+                    } else if (attack.damage) |damage_dealt| {
                         try adventureLog.append(try std.fmt.allocPrint(&textArena.allocator, "You attack the {s}, dealing {} damage", .{ attack.otherName, damage_dealt }));
                     } else {
                         try adventureLog.append(try std.fmt.allocPrint(&textArena.allocator, "You attack the {s}, but deal no damage", .{attack.otherName}));
