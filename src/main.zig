@@ -93,6 +93,7 @@ pub fn onInit() !void {
     registry.add(player, component.Movement{ .vel = vec2i(0, 0) });
     registry.add(player, component.Render{ .tid = 25 });
     registry.add(player, component.PlayerControl{});
+    camPos = map.spawn;
     try update_fov();
 
     try adventureLog.append("You descend into the dungeon, hoping to gain experience and treasure.");
@@ -127,68 +128,59 @@ pub fn onEvent(event: platform.event.Event) !void {
         else => {},
     }
 
-    // Set all players movement equal to playerMove
-    if (!playerMove.eql(vec2i(0, 0))) {
-        var view = registry.view(.{ component.PlayerControl, component.Movement }, .{});
-        var iter = view.iterator();
-        while (iter.next()) |entity| {
-            const move = view.get(component.Movement, entity);
-            move.vel = playerMove;
-        }
-    }
+    // Don't change anything if the player didn't move
+    if (playerMove.eql(vec2i(0, 0))) return;
 
-    // Move entities
+    // Move all players entities equal to playerMove
+    var changing_levels = false;
+    var player_moved = false;
     {
-        var view = registry.view(.{ component.Position, component.Movement }, .{});
-        var iter = view.iterator();
-        while (iter.next()) |entity| {
-            const pos = view.get(component.Position, entity);
-            const move = view.get(component.Movement, entity);
-
-            const new_pos = pos.pos.addv(move.vel);
-            if (!map.get(new_pos).solid()) {
-                pos.pos = new_pos;
-            }
-            move.vel = vec2i(0, 0);
-        }
-    }
-
-    // Check if any players are now standing on the stairsdown, and also update the camera pos
-    {
-        var any_on_stairs = false;
         var view = registry.view(.{ component.PlayerControl, component.Position }, .{});
         var iter = view.iterator();
         while (iter.next()) |entity| {
-            const pos = view.getConst(component.Position, entity);
-            if (map.get(pos.pos) == .StairsDown) {
-                any_on_stairs = true;
-                break;
-            }
-            camPos = pos.pos;
-        }
+            const pos = view.get(component.Position, entity);
 
-        if (any_on_stairs) {
-            map.deinit();
-
-            // Create map
-            map = try generate.generateMap(allocator, .{
-                .size = vec2i(50, 50),
-                .max_rooms = 50,
-                .room_size_range = .{
-                    .min = 3,
-                    .max = 10,
-                },
-            });
-
-            iter = view.iterator();
-            while (iter.next()) |entity| {
-                const pos = view.get(component.Position, entity);
-                pos.pos = map.spawn;
+            const new_pos = pos.pos.addv(playerMove);
+            const new_tile_tag = map.get(new_pos);
+            if (!new_tile_tag.solid()) {
+                player_moved = true;
+                pos.pos = new_pos;
                 camPos = pos.pos;
+                if (new_tile_tag == .StairsDown) {
+                    changing_levels = true;
+                }
             }
         }
     }
-    try update_fov();
+
+    if (changing_levels) {
+        map.deinit();
+
+        // Create map
+        map = try generate.generateMap(allocator, .{
+            .size = vec2i(50, 50),
+            .max_rooms = 50,
+            .room_size_range = .{
+                .min = 3,
+                .max = 10,
+            },
+        });
+
+        var iter = registry.entities();
+        while (iter.next()) |entity| {
+            if (registry.has(component.PlayerControl, entity)) {
+                const pos = registry.get(component.Position, entity);
+                pos.pos = map.spawn;
+                camPos = pos.pos;
+            } else {
+                registry.destroy(entity);
+            }
+        }
+    }
+
+    if (player_moved) {
+        try update_fov();
+    }
 }
 
 fn update_fov() !void {
