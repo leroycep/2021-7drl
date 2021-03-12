@@ -51,11 +51,6 @@ pub const Map = struct {
         return this.tiles[idx];
     }
 
-    pub fn getDesc(this: @This(), pos: Vec2i) tile.Desc {
-        const tag = this.get(pos);
-        return tile.DESCRIPTIONS[@enumToInt(tag)];
-    }
-
     pub fn render(this: @This(), flatRenderer: *FlatRenderer) void {
         var pos = vec2i(0, 0);
         while (pos.y < this.size.y) : (pos.y += 1) {

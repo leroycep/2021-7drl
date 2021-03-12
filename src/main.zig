@@ -114,7 +114,7 @@ pub fn onEvent(event: platform.event.Event) !void {
         else => {},
     }
 
-    if (!map.getDesc(playerPos.addv(playerMove)).solid) {
+    if (!map.get(playerPos.addv(playerMove)).solid()) {
         playerPos = playerPos.addv(playerMove);
     }
     playerMove = vec2i(0, 0);

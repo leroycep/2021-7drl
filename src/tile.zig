@@ -8,6 +8,14 @@ pub const Tag = enum(u16) {
     Floor,
     Wall,
     StairsDown,
+
+    pub fn solid(this: @This()) bool {
+        return DESCRIPTIONS[@enumToInt(this)].solid;
+    }
+
+    pub fn rendering(this: @This()) RenderInfo {
+        return DESCRIPTIONS[@enumToInt(this)].render;
+    }
 };
 
 pub const Desc = struct {
