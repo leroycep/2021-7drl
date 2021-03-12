@@ -173,7 +173,7 @@ pub const BitmapFontRenderer = struct {
         scale: f32 = 1,
     };
 
-    pub fn drawText(this: @This(), drawbatcher: *FlatRenderer, text: []const u8, pos: Vec2f, options: DrawOptions) !void {
+    pub fn drawText(this: @This(), drawbatcher: *FlatRenderer, text: []const u8, pos: Vec2f, options: DrawOptions) void {
         var x = switch (options.textAlign) {
             .Left, .Right => pos.x,
             .Center => calc_text_width: {
@@ -222,7 +222,7 @@ pub const BitmapFontRenderer = struct {
 
                 const glyphPos = glyph.pos.divv(textureSize);
 
-                try drawbatcher.drawTextureRect(texture, glyphPos, glyph.pos.addv(glyph.size).divv(textureSize), renderPos, glyph.size.scale(options.scale));
+                drawbatcher.drawTextureRect(texture, glyphPos, glyph.pos.addv(glyph.size).divv(textureSize), renderPos, glyph.size.scale(options.scale));
 
                 x += direction * xadvance;
             }

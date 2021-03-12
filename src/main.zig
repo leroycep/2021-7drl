@@ -178,7 +178,7 @@ pub fn render(alpha: f64) !void {
             texty -= 10;
         }
         const text = adventureLog.items[@intCast(usize, i)];
-        try font.drawText(&flatRenderer, text, vec2f(0, texty), .{});
+        font.drawText(&flatRenderer, text, vec2f(0, texty), .{});
     }
     flatRenderer.flush();
 }
@@ -199,5 +199,5 @@ pub fn render_tile(fr: *FlatRenderer, tid: tile.TID, pos: Vec2i, opacity: f32) v
             .max = texpos2,
         },
         .opacity = opacity,
-    }) catch unreachable;
+    });
 }

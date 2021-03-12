@@ -18,14 +18,13 @@ const Vertex = extern struct {
 };
 
 pub const FlatRenderer = struct {
-    allocator: *std.mem.Allocator,
     program: gl.GLuint,
     vertex_array_object: gl.GLuint,
     vertex_buffer_object: gl.GLuint,
     projectionMatrixUniform: gl.GLint,
     perspective: Mat4f,
-    elements: gl.GLint,
-    draw_buffer: ArrayList(Vertex),
+    draw_buffer: [1024]Vertex,
+    num_vertices: usize,
     texture: gl.GLuint,
 
     /// Font should be the name of the font texture and csv minus their extensions
@@ -62,20 +61,18 @@ pub const FlatRenderer = struct {
         const projection = gl.getUniformLocation(program, "mvp");
 
         return @This(){
-            .allocator = allocator,
             .program = program,
             .vertex_array_object = vao,
             .vertex_buffer_object = vbo,
             .projectionMatrixUniform = projection,
             .perspective = Mat4f.orthographic(0, screenSize.x, screenSize.y, 0, -1, 1),
-            .elements = 0,
-            .draw_buffer = ArrayList(Vertex).init(allocator),
+            .draw_buffer = undefined,
+            .num_vertices = 0,
             .texture = 0,
         };
     }
 
     pub fn deinit(this: @This()) void {
-        this.draw_buffer.deinit();
         gl.deleteProgram(this.program);
         gl.deleteVertexArrays(1, &this.vertex_array_object);
         gl.deleteBuffers(1, &this.vertex_buffer_object);
@@ -85,12 +82,12 @@ pub const FlatRenderer = struct {
         this.perspective = Mat4f.orthographic(0, screenSize.x, screenSize.y, 0, -1, 1);
     }
 
-    pub fn drawTexture(this: *@This(), texture: Texture, pos: Vec2f, size: Vec2f) !void {
-        try this.drawGLTexture(texture.glTexture, vec2f(0, 0), vec2f(1.0, 1.0), pos, size);
+    pub fn drawTexture(this: *@This(), texture: Texture, pos: Vec2f, size: Vec2f) void {
+        this.drawGLTexture(texture.glTexture, vec2f(0, 0), vec2f(1.0, 1.0), pos, size, 1.0);
     }
 
-    pub fn drawTextureRect(this: *@This(), texture: Texture, texPos1: Vec2f, texPos2: Vec2f, pos: Vec2f, size: Vec2f) !void {
-        try this.drawGLTexture(texture.glTexture, texPos1, texPos2, pos, size, 1);
+    pub fn drawTextureRect(this: *@This(), texture: Texture, texPos1: Vec2f, texPos2: Vec2f, pos: Vec2f, size: Vec2f) void {
+        this.drawGLTexture(texture.glTexture, texPos1, texPos2, pos, size, 1);
     }
 
     pub const ExtOptions = struct {
@@ -105,17 +102,20 @@ pub const FlatRenderer = struct {
         opacity: f32 = 1,
     };
 
-    pub fn drawTextureExt(this: *@This(), texture: Texture, pos: Vec2f, opts: ExtOptions) !void {
+    pub fn drawTextureExt(this: *@This(), texture: Texture, pos: Vec2f, opts: ExtOptions) void {
         const size = opts.size orelse texture.size.intToFloat(f32);
-        try this.drawGLTexture(texture.glTexture, opts.rect.min, opts.rect.max, pos, size, opts.opacity);
+        this.drawGLTexture(texture.glTexture, opts.rect.min, opts.rect.max, pos, size, opts.opacity);
     }
 
-    pub fn drawGLTexture(this: *@This(), texture: gl.GLuint, texPos1: Vec2f, texPos2: Vec2f, pos: Vec2f, size: Vec2f, opacity: f32) !void {
+    pub fn drawGLTexture(this: *@This(), texture: gl.GLuint, texPos1: Vec2f, texPos2: Vec2f, pos: Vec2f, size: Vec2f, opacity: f32) void {
         if (texture != this.texture) {
             this.flush();
             this.texture = texture;
         }
-        try this.draw_buffer.appendSlice(&[_]Vertex{
+        if (this.num_vertices + 6 > this.draw_buffer.len) {
+            this.flush();
+        }
+        this.draw_buffer[this.num_vertices..][0..6].* = [6]Vertex{
             Vertex{ // top left
                 .x = pos.x,
                 .y = pos.y,
@@ -158,14 +158,15 @@ pub const FlatRenderer = struct {
                 .v = texPos2.y,
                 .opacity = opacity,
             },
-        });
+        };
+        this.num_vertices += 6;
     }
 
     pub fn flush(this: *@This()) void {
         gl.bindVertexArray(this.vertex_array_object);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertex_buffer_object);
-        gl.bufferData(gl.ARRAY_BUFFER, @intCast(isize, this.draw_buffer.items.len) * @sizeOf(Vertex), this.draw_buffer.items.ptr, gl.STATIC_DRAW);
-        defer this.draw_buffer.shrinkRetainingCapacity(0);
+        gl.bufferData(gl.ARRAY_BUFFER, @intCast(isize, this.num_vertices) * @sizeOf(Vertex), &this.draw_buffer, gl.STATIC_DRAW);
+        defer this.num_vertices = 0;
         gl.bindVertexArray(0);
         gl.bindBuffer(gl.ARRAY_BUFFER, 0);
 
@@ -189,6 +190,6 @@ pub const FlatRenderer = struct {
 
         gl.bindVertexArray(this.vertex_array_object);
         defer gl.bindVertexArray(0);
-        gl.drawArrays(gl.TRIANGLES, 0, @intCast(c_int, this.draw_buffer.items.len));
+        gl.drawArrays(gl.TRIANGLES, 0, @intCast(c_int, this.num_vertices));
     }
 };
