@@ -112,7 +112,7 @@ pub fn generateMap(allocator: *std.mem.Allocator, opts: Options) !Map {
     }
 
     // Carve out rooms
-    for (rooms.items) |room| {
+    for (rooms.items) |room, room_idx| {
         var y: i64 = room.pos.y;
         while (y <= room.pos.y + room.size.y) : (y += 1) {
             map.setIfEmpty(vec2i(room.pos.x - 1, y), .Wall);
@@ -133,27 +133,30 @@ pub fn generateMap(allocator: *std.mem.Allocator, opts: Options) !Map {
             }
         }
 
+        if (room_idx == rooms.items.len - 1) {
+            const pos_in_room = Vec2i{
+                .x = rand.intRangeAtMostBiased(i64, 0, room.size.x),
+                .y = rand.intRangeAtMostBiased(i64, 0, room.size.y),
+            };
+            map.set(room.pos.addv(pos_in_room), .StairsDown);
+        }
+
         // Place monsters in room
         const num_monsters = rand.intRangeAtMostBiased(u64, 0, opts.max_monsters_per_room);
         var c: u64 = 0;
         while (c < num_monsters) : (c += 1) {
-            createRatEntity(&map, Vec2i{
+            const monsterPos = Vec2i{
                 .x = room.pos.x + rand.intRangeAtMostBiased(i64, 0, room.size.x),
                 .y = room.pos.y + rand.intRangeAtMostBiased(i64, 0, room.size.y),
-            });
+            };
+            // Don't place the monster on unwalkable terrain  or stairs
+            const tile_tag = map.get(monsterPos);
+            if (tile_tag.solid() or tile_tag == .StairsDown) continue;
+            createRatEntity(&map, monsterPos);
         }
     }
 
     map.spawn = rooms.items[0].pos.addv(rooms.items[0].size.scaleDivFloor(2));
-
-    {
-        const last_room = rooms.items[rooms.items.len - 1];
-        const pos_in_room = Vec2i{
-            .x = rand.intRangeAtMostBiased(i64, 0, last_room.size.x),
-            .y = rand.intRangeAtMostBiased(i64, 0, last_room.size.y),
-        };
-        map.set(last_room.pos.addv(pos_in_room), .StairsDown);
-    }
 
     return map;
 }
@@ -199,4 +202,17 @@ pub fn createRatEntity(map: *Map, pos: Vec2i) void {
     var e = map.registry.create();
     map.registry.add(e, component.Position{ .pos = pos });
     map.registry.add(e, component.Render{ .tid = 415 });
+    map.registry.add(e, component.Fighter{
+        .name = "rat",
+        .health = 1,
+        .healthMax = 1,
+        .power = 1,
+        .defense = 0,
+    });
+}
+
+pub fn corpse(map: *Map, pos: Vec2i) void {
+    var e = map.registry.create();
+    map.registry.add(e, component.Position{ .pos = pos });
+    map.registry.add(e, component.Render{ .tid = 720 });
 }

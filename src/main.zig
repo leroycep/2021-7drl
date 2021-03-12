@@ -54,12 +54,11 @@ var tilesetTex: Texture = undefined;
 var flatRenderer: FlatRenderer = undefined;
 var font: Font = undefined;
 
+var textArena = std.heap.ArenaAllocator.init(allocator);
 var adventureLog = std.ArrayList([]const u8).init(allocator);
 var map: Map = undefined;
 var registry: ecs.Registry = undefined;
-//var playerPos = vec2i(10, 10);
 var camPos = vec2i(0, 0);
-//var playerMove = vec2i(0, 0);
 
 pub fn onInit() !void {
     std.log.info("app init", .{});
@@ -86,12 +85,13 @@ pub fn onInit() !void {
         .max_monsters_per_room = 2,
     });
 
-    var player = map.registry.create();
-    map.registry.add(player, component.Position{ .pos = map.spawn });
-    map.registry.add(player, component.Movement{ .vel = vec2i(0, 0) });
-    map.registry.add(player, component.Render{ .tid = 25 });
-    map.registry.add(player, component.PlayerControl{});
-    camPos = map.spawn;
+    add_player_to_map(.{
+        .name = "player",
+        .health = 3,
+        .healthMax = 3,
+        .power = 2,
+        .defense = 1,
+    });
     try update_fov();
 
     try adventureLog.append("You descend into the dungeon, hoping to gain experience and treasure.");
@@ -101,6 +101,7 @@ fn onDeinit() void {
     std.log.info("app deinit", .{});
     map.deinit();
     adventureLog.deinit();
+    textArena.deinit();
     font.deinit();
     flatRenderer.deinit();
     _ = gpa.deinit();
@@ -131,16 +132,28 @@ pub fn onEvent(event: platform.event.Event) !void {
     // Move all players entities equal to playerMove
     var changing_levels = false;
     var player_moved = false;
+    var player_character_exists = false;
     {
         var view = map.registry.view(.{ component.PlayerControl, component.Position }, .{});
         var iter = view.iterator();
         while (iter.next()) |entity| {
+            player_character_exists = true;
+
             const pos = view.get(component.Position, entity);
 
             const new_pos = pos.pos.addv(playerMove);
             if (map.getEntityAtPos(new_pos)) |other_entity| {
-                try adventureLog.append("You kick the rat. It seems angry.");
-                continue;
+                // If the entity is a fighter, attack it. Otherwise, ignore it
+                if (map.registry.tryGet(component.Fighter, other_entity)) |other_fighter| {
+                    const player_fighter = map.registry.getConst(component.Fighter, entity);
+                    const attack = player_fighter.attack(&map, other_entity, other_fighter);
+                    if (attack.damage) |damage_dealt| {
+                        try adventureLog.append(try std.fmt.allocPrint(&textArena.allocator, "You attack the {s}, dealing {} damage", .{ attack.otherName, damage_dealt }));
+                    } else {
+                        try adventureLog.append(try std.fmt.allocPrint(&textArena.allocator, "You attack the {s}, but deal no damage", .{attack.otherName}));
+                    }
+                    continue;
+                }
             }
             const new_tile_tag = map.get(new_pos);
             if (!new_tile_tag.solid()) {
@@ -154,7 +167,16 @@ pub fn onEvent(event: platform.event.Event) !void {
         }
     }
 
+    if (!player_character_exists) return;
+
     if (changing_levels) {
+        var player_fighter: ?component.Fighter = null;
+        var view = map.registry.view(.{ component.PlayerControl, component.Fighter }, .{});
+        var iter = view.iterator();
+        while (iter.next()) |entity| {
+            player_fighter = view.getConst(component.Fighter, entity);
+        }
+
         map.deinit();
 
         // Create map
@@ -168,17 +190,22 @@ pub fn onEvent(event: platform.event.Event) !void {
             .max_monsters_per_room = 2,
         });
 
-        var player = map.registry.create();
-        map.registry.add(player, component.Position{ .pos = map.spawn });
-        map.registry.add(player, component.Movement{ .vel = vec2i(0, 0) });
-        map.registry.add(player, component.Render{ .tid = 25 });
-        map.registry.add(player, component.PlayerControl{});
-        camPos = map.spawn;
+        add_player_to_map(player_fighter.?);
     }
 
     if (player_moved) {
         try update_fov();
     }
+}
+
+fn add_player_to_map(fighter: component.Fighter) void {
+    var player = map.registry.create();
+    map.registry.add(player, component.Position{ .pos = map.spawn });
+    map.registry.add(player, component.Movement{ .vel = vec2i(0, 0) });
+    map.registry.add(player, component.Render{ .tid = 25 });
+    map.registry.add(player, component.PlayerControl{});
+    map.registry.add(player, fighter);
+    camPos = map.spawn;
 }
 
 fn update_fov() !void {
