@@ -8,6 +8,11 @@ pub const Position = struct { pos: Vec2i };
 pub const Movement = struct { vel: Vec2i };
 pub const Render = struct { tid: u16 };
 pub const PlayerControl = struct {};
+pub const AIControl = union(enum) {
+    Basic: struct {
+        sight: i64,
+    },
+};
 pub const Fighter = struct {
     name: []const u8,
     health: i64,

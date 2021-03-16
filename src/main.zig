@@ -193,6 +193,8 @@ pub fn onEvent(event: platform.event.Event) !void {
         });
 
         add_player_to_map(player_fighter.?);
+    } else {
+        try map.updateAI();
     }
 
     if (player_moved) {

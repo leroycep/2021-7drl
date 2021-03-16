@@ -75,6 +75,45 @@ pub const Map = struct {
         return null;
     }
 
+    pub fn updateAI(this: *@This()) !void {
+        var fov = std.AutoArrayHashMap(Vec2i, void).init(this.allocator);
+        defer fov.deinit();
+
+        // Only target player controlled entities for now
+        var target_view = this.registry.view(.{ component.PlayerControl, component.Position, component.Fighter }, .{});
+
+        var view = this.registry.view(.{ component.AIControl, component.Position, component.Fighter }, .{});
+        var iter = view.iterator();
+        while (iter.next()) |entity| {
+            fov.clearRetainingCapacity();
+            const ai = view.get(component.AIControl, entity);
+            switch (ai.*) {
+                .Basic => |info| {
+                    const position = view.get(component.Position, entity);
+                    const fighter = view.getConst(component.Fighter, entity);
+                    try this.computeFOV(&fov, position.pos, info.sight);
+
+                    var target: ?ecs.Entity = null;
+                    var target_iter = target_view.iterator();
+                    while (target_iter.next()) |target_entity| {
+                        const target_position = target_view.getConst(component.Position, target_entity);
+                        const target_fighter = target_view.get(component.Fighter, target_entity);
+                        if (fov.get(target_position.pos) != null) {
+                            // TODO: get path to and judge distance
+                            const path = this.getPathTo(position.pos, target_position.pos) catch continue;
+                            defer this.allocator.free(path);
+                            if (path[1].eql(target_position.pos)) {
+                                _ = fighter.attack(this, target_entity, target_fighter);
+                            } else {
+                                position.pos = path[0];
+                            }
+                        }
+                    }
+                },
+            }
+        }
+    }
+
     pub fn render(this: @This(), flatRenderer: *FlatRenderer) void {
         for (this.explored.items()) |entry| {
             const pos = entry.key;
@@ -181,5 +220,94 @@ pub const Map = struct {
                 }
             }
         }
+    }
+
+    pub fn getPathTo(this: @This(), startingPos: Vec2i, endPos: Vec2i) ![]Vec2i {
+        // TODO: change to function expression when https://github.com/ziglang/zig/issues/1717 is done
+        const util = struct {
+            fn h(pos: Vec2i, dest: Vec2i) i64 {
+                return pos.distanceSq(dest);
+            }
+        };
+        const h = util.h;
+
+        const Node = struct {
+            score: i64,
+            pos: Vec2i,
+
+            pub fn cmp(a: @This(), b: @This()) bool {
+                return a.score < b.score;
+            }
+        };
+
+        var came_from = std.AutoHashMap(Vec2i, Vec2i).init(this.allocator);
+        defer came_from.deinit();
+
+        var g_score = std.AutoHashMap(Vec2i, i64).init(this.allocator);
+        defer g_score.deinit();
+        try g_score.put(startingPos, 0);
+
+        var f_score = std.AutoHashMap(Vec2i, i64).init(this.allocator);
+        defer f_score.deinit();
+        try f_score.put(startingPos, h(startingPos, endPos));
+
+        var positions_to_check = std.PriorityQueue(Node).init(this.allocator, Node.cmp);
+        defer positions_to_check.deinit();
+        try positions_to_check.add(.{
+            .score = f_score.get(startingPos).?,
+            .pos = startingPos,
+        });
+
+        while (positions_to_check.count() > 0) {
+            const node = positions_to_check.remove();
+
+            if (node.pos.eql(endPos)) {
+                var total_path = std.ArrayList(Vec2i).init(this.allocator);
+                defer total_path.deinit();
+
+                var current_pos = endPos;
+                try total_path.append(current_pos);
+                while (!current_pos.eql(startingPos)) {
+                    current_pos = came_from.get(current_pos).?;
+                    try total_path.append(current_pos);
+                }
+                return total_path.toOwnedSlice();
+            }
+
+            const NEIGHBOR_DIR = [_]Vec2i{
+                vec2i(-1, -1),
+                vec2i(0, -1),
+                vec2i(1, -1),
+                vec2i(-1, 0),
+                vec2i(1, 0),
+                vec2i(-1, 1),
+                vec2i(0, 1),
+                vec2i(1, 1),
+            };
+
+            for (NEIGHBOR_DIR) |dir| {
+                const neighbor = node.pos.addv(dir);
+                if (this.get(neighbor).solid()) {
+                    continue;
+                }
+
+                const tenative_g_score = g_score.get(node.pos).? + 1;
+                const neighbor_g_score = g_score.get(node.pos) orelse std.math.maxInt(i64);
+                if (tenative_g_score < neighbor_g_score) {
+                    try came_from.put(neighbor, node.pos);
+                    try g_score.put(neighbor, tenative_g_score);
+
+                    const neighbor_f_score = tenative_g_score + h(neighbor, endPos);
+                    if (f_score.get(node.pos)) |prev_neighbor_f_score| {
+                        try positions_to_check.update(.{ .pos = neighbor, .score = prev_neighbor_f_score }, .{ .pos = neighbor, .score = neighbor_f_score });
+                    } else {
+                        try positions_to_check.add(.{ .pos = neighbor, .score = neighbor_f_score });
+                    }
+                    try f_score.put(neighbor, neighbor_f_score);
+                }
+            }
+        }
+
+        return error.PathNotFound;
     }
 };
