@@ -2,12 +2,6 @@ const std = @import("std");
 const Builder = std.build.Builder;
 const deps = @import("./deps.zig");
 
-const PLATFORM = std.build.Pkg{
-    .name = "platform",
-    .path = "platform/platform.zig",
-    .dependencies = &[_]std.build.Pkg{ deps.pkgs.math, deps.pkgs.zigimg },
-};
-
 pub fn build(b: *Builder) void {
     const target = b.standardTargetOptions(.{});
     const mode = b.standardReleaseOptions();
@@ -18,10 +12,7 @@ pub fn build(b: *Builder) void {
     native.install();
     native.linkLibC();
     native.linkSystemLibrary("SDL2");
-    native.addPackage(PLATFORM);
-    native.addPackage(deps.pkgs.zigimg);
-    native.addPackage(deps.pkgs.math);
-    native.addPackage(deps.pkgs.ecs);
+    deps.addAllTo(native);
     b.step("native", "Build native binary").dependOn(&native.step);
     
     const native_run = native.run();
@@ -31,17 +22,14 @@ pub fn build(b: *Builder) void {
     const native_run_step = b.step("run", "Run the native binary");
     native_run_step.dependOn(&native_run.step);
 
-    const wasm = b.addStaticLibrary("2021-7drl-web", "src/main.zig");
-    wasm.setBuildMode(mode);
-    wasm.setOutputDir(b.fmt("{s}/www", .{b.install_prefix}));
-    wasm.setTarget(.{
+    const web = b.addStaticLibrary("2021-7drl-web", "src/main.zig");
+    web.setBuildMode(mode);
+    web.setOutputDir(b.fmt("{s}/www", .{b.install_prefix}));
+    web.setTarget(.{
         .cpu_arch = .wasm32,
         .os_tag = .freestanding,
     });
-    wasm.addPackage(PLATFORM);
-    wasm.addPackage(deps.pkgs.zigimg);
-    wasm.addPackage(deps.pkgs.math);
-    wasm.addPackage(deps.pkgs.ecs);
+    deps.addAllTo(web);
 
     const static = b.addInstallDirectory(.{
         .source_dir = "static",
@@ -49,9 +37,9 @@ pub fn build(b: *Builder) void {
         .install_subdir = "www",
     });
 
-    const build_wasm = b.step("wasm", "Build WASM application");
-    build_wasm.dependOn(&wasm.step);
-    build_wasm.dependOn(&static.step);
+    const build_web = b.step("web", "Build WASM application");
+    build_web.dependOn(&web.step);
+    build_web.dependOn(&static.step);
 
     var main_tests = b.addTest("src/main.zig");
     main_tests.setBuildMode(mode);

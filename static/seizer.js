@@ -232,16 +232,16 @@ export default function getPlatformEnv(canvas_element, getInstance) {
     const glFramebuffers = [null];
     const glUniformLocations = [null];
 
-    // Set up errno constants to be filled in when `platform_run` is called
+    // Set up errno constants to be filled in when `seizer_run` is called
     let ERRNO_OUT_OF_MEMORY = undefined;
     let ERRNO_FILE_NOT_FOUND = undefined;
     let ERRNO_UNKNOWN = undefined;
 
-    let platform_log_string = "";
+    let seizer_log_string = "";
     let running = true;
 
     return {
-        platform_run(maxDelta, tickDelta) {
+        seizer_run(maxDelta, tickDelta) {
             const instance = getInstance();
 
             // Load error numbers from WASM
@@ -264,24 +264,24 @@ export default function getPlatformEnv(canvas_element, getInstance) {
                 initFinished(maxDelta, tickDelta);
             });
         },
-        platform_quit() {
+        seizer_quit() {
             running = false;
         },
-        platform_log_write: (ptr, len) => {
-            platform_log_string += utf8decoder.decode(
+        seizer_log_write: (ptr, len) => {
+            seizer_log_string += utf8decoder.decode(
                 new Uint8Array(getMemory().buffer, ptr, len)
             );
         },
-        platform_log_flush: () => {
-            console.log(platform_log_string);
-            platform_log_string = "";
+        seizer_log_flush: () => {
+            console.log(seizer_log_string);
+            seizer_log_string = "";
         },
-        platform_reject_promise: (id, errno) => {
+        seizer_reject_promise: (id, errno) => {
             idpromise_reject(id, new Error(getErrorName(errno)));
         },
-        platform_resolve_promise: idpromise_resolve,
+        seizer_resolve_promise: idpromise_resolve,
 
-        platform_fetch: (ptr, len, cb, ctx, allocator) => {
+        seizer_fetch: (ptr, len, cb, ctx, allocator) => {
             const instance = getInstance();
 
             const filename = utf8decoder.decode(
@@ -332,7 +332,7 @@ export default function getPlatformEnv(canvas_element, getInstance) {
                         instance.exports.wasm_fail_fetch(cb, ctx, ERRNO_UNKNOWN)
                 );
         },
-        platform_random_bytes(ptr, len) {
+        seizer_random_bytes(ptr, len) {
             const bytes = new Uint8Array(getMemory().buffer, ptr, len);
             window.crypto.getRandomValues(bytes);
         },

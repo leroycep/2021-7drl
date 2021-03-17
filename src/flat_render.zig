@@ -1,5 +1,5 @@
 const std = @import("std");
-const platform = @import("platform");
+const platform = @import("seizer");
 const gl = platform.gl;
 const glUtil = platform.glUtil;
 const math = @import("math");

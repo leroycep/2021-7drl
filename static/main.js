@@ -1,4 +1,4 @@
-import getPlatformEnv from "./platform.js";
+import getPlatformEnv from "./seizer.js";
 
 const canvas_element = document.getElementById("game-canvas");
 var globalInstance;

@@ -4,7 +4,7 @@ const math = @import("math");
 const Vec2i = math.Vec(2, i64);
 const vec2i = Vec2i.init;
 const Map = @import("./map.zig").Map;
-const platform = @import("platform");
+const platform = @import("seizer");
 const component = @import("./component.zig");
 
 const Room = struct {

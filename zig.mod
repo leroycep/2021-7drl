@@ -3,6 +3,8 @@ name: 2021-7drl
 main: src/main.zig
 dependencies:
 - type: git
+  path: https://github.com/leroycep/seizer.git
+- type: git
   path: https://github.com/leroycep/zigmath.git
 - type: git
   path: https://github.com/leroycep/zigimg.git

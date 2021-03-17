@@ -1,5 +1,5 @@
 const std = @import("std");
-const platform = @import("platform");
+const platform = @import("seizer");
 const gl = platform.gl;
 const testing = std.testing;
 const FlatRenderer = @import("./flat_render.zig").FlatRenderer;
