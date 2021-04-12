@@ -122,6 +122,13 @@ pub fn onEvent(event: platform.event.Event) !void {
             .KP_1 => playerMove = vec2i(-1, 1),
             else => {},
         },
+        .ControllerButtonDown => |cbutton| switch (cbutton.button) {
+            11 => playerMove = vec2i(0, -1),
+            12 => playerMove = vec2i(0, 1),
+            13 => playerMove = vec2i(-1, 0),
+            14 => playerMove = vec2i(1, 0),
+            else => {},
+        },
         .Quit => platform.quit(),
         else => {},
     }

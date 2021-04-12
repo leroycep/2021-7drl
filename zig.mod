@@ -4,6 +4,7 @@ main: src/main.zig
 dependencies:
 - type: git
   path: https://github.com/leroycep/seizer.git
+  version: branch-controllers
 - type: git
   path: https://github.com/leroycep/zigmath.git
 - type: git
