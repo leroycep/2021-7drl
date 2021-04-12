@@ -11,7 +11,13 @@ pub fn build(b: *Builder) void {
     native.setBuildMode(mode);
     native.install();
     native.linkLibC();
-    native.linkSystemLibrary("SDL2");
+    native.linkSystemLibraryName("SDL2");
+
+    if (target.cpu_arch != null and target.cpu_arch.? == .aarch64) {
+        native.addIncludeDir("./sdl2-aarch64/");
+        native.addLibPath("./sdl2-aarch64/");
+    }
+
     deps.addAllTo(native);
     b.step("native", "Build native binary").dependOn(&native.step);
 
