@@ -83,7 +83,7 @@ pub const BitmapFontRenderer = struct {
                     } else if (std.mem.eql(u8, "chnl", key)) {
                         // TODO
                     } else {
-                        std.log.warn("unknown pair for {} kind: {}", .{ kind, pair });
+                        std.log.warn("unknown pair for {s} kind: {s}", .{ kind, pair });
                     }
                 }
 
@@ -117,7 +117,7 @@ pub const BitmapFontRenderer = struct {
                     } else if (std.mem.eql(u8, "pages", key)) {
                         expected_num_pages = try std.fmt.parseInt(usize, value, 10);
                     } else {
-                        std.log.warn("unknown pair for {} kind: {}", .{ kind, pair });
+                        std.log.warn("unknown pair for {s} kind: {s}", .{ kind, pair });
                     }
                 }
             } else if (std.mem.eql(u8, "page", kind)) {
@@ -136,7 +136,7 @@ pub const BitmapFontRenderer = struct {
                         const trimmed = std.mem.trim(u8, value, "\"");
                         page_filename = try std.fs.path.join(allocator, &[_][]const u8{ base_path, trimmed });
                     } else {
-                        std.log.warn("unknown pair for {} kind: {}", .{ kind, pair });
+                        std.log.warn("unknown pair for {s} kind: {s}", .{ kind, pair });
                     }
                 }
 

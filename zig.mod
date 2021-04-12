@@ -12,7 +12,7 @@ dependencies:
   name: zigimg
   main: zigimg.zig
 - type: git
-  path: https://github.com/prime31/zig-ecs.git
+  path: https://github.com/leroycep/zig-ecs.git
   name: ecs
   main: src/ecs.zig
 

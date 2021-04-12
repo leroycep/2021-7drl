@@ -14,11 +14,11 @@ pub fn build(b: *Builder) void {
     native.linkSystemLibrary("SDL2");
     deps.addAllTo(native);
     b.step("native", "Build native binary").dependOn(&native.step);
-    
+
     const native_run = native.run();
     // Start the program in the directory with the assets in it
     native_run.cwd = "static";
-    
+
     const native_run_step = b.step("run", "Run the native binary");
     native_run_step.dependOn(&native_run.step);
 

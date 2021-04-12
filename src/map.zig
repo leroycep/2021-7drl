@@ -152,8 +152,8 @@ pub const Map = struct {
         try positions_to_check.push_back(startingPos);
 
         while (positions_to_check.pop_front()) |pos| {
-            const dist = pos.distance(startingPos);
-            if (dist > radius) {
+            const dist = pos.distanceSq(startingPos);
+            if (dist > radius * radius) {
                 continue;
             }
 
@@ -176,7 +176,7 @@ pub const Map = struct {
 
             for (DIRECTIONS) |dir| {
                 const new_pos = pos.addv(dir);
-                if (new_pos.distance(startingPos) > dist) {
+                if (new_pos.distanceSq(startingPos) > dist) {
                     try positions_to_check.push_back(new_pos);
                 }
             }
