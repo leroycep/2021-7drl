@@ -151,6 +151,9 @@ pub const Map = struct {
         defer positions_to_check.deinit();
         try positions_to_check.push_back(startingPos);
 
+        var added_positions = std.AutoArrayHashMap(Vec2i, void).init(this.allocator);
+        defer added_positions.deinit();
+
         while (positions_to_check.pop_front()) |pos| {
             const dist = pos.distanceSq(startingPos);
             if (dist > radius * radius) {
@@ -176,8 +179,10 @@ pub const Map = struct {
 
             for (DIRECTIONS) |dir| {
                 const new_pos = pos.addv(dir);
-                if (new_pos.distanceSq(startingPos) > dist) {
+                const new_dist = new_pos.distanceSq(startingPos);
+                if (!added_positions.contains(new_pos) and std.math.sqrt(@intCast(u64, new_dist)) > std.math.sqrt(@intCast(u64, dist))) {
                     try positions_to_check.push_back(new_pos);
+                    try added_positions.put(new_pos, {});
                 }
             }
         }
