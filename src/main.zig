@@ -59,6 +59,16 @@ var adventureLog = std.ArrayList([]const u8).init(allocator);
 var map: Map = undefined;
 var registry: ecs.Registry = undefined;
 var camPos = vec2i(0, 0);
+var menu_state: MenuState = MenuState.Closed;
+
+const MenuOpen = struct {
+    selection: u8,
+};
+
+const MenuState = union(enum) {
+    Closed: void,
+    Open: MenuOpen,
+};
 
 pub fn onInit() !void {
     std.log.info("app init", .{});
@@ -109,6 +119,8 @@ fn onDeinit() void {
 
 pub fn onEvent(event: platform.event.Event) !void {
     var playerMove = vec2i(0, 0);
+    var toggle_menu = false;
+    var activate_menu_item = false;
     switch (event) {
         .KeyDown => |e| switch (e.scancode) {
             .KP_8, .W, .UP => playerMove = vec2i(0, -1),
@@ -120,6 +132,9 @@ pub fn onEvent(event: platform.event.Event) !void {
             .KP_9 => playerMove = vec2i(1, -1),
             .KP_3 => playerMove = vec2i(1, 1),
             .KP_1 => playerMove = vec2i(-1, 1),
+
+            .ESCAPE => toggle_menu = true,
+            .Z => activate_menu_item = true,
             else => {},
         },
         .ControllerButtonDown => |cbutton| switch (cbutton.button) {
@@ -127,10 +142,45 @@ pub fn onEvent(event: platform.event.Event) !void {
             12 => playerMove = vec2i(0, 1),
             13 => playerMove = vec2i(-1, 0),
             14 => playerMove = vec2i(1, 0),
-            else => {},
+            6 => toggle_menu = true,
+            0 => activate_menu_item = true,
+            else => |num| {
+                std.log.debug("unknown button {}", .{num});
+            },
         },
         .Quit => platform.quit(),
         else => {},
+    }
+
+    if (toggle_menu) {
+        menu_state = switch (menu_state) {
+            .Closed => .{ .Open = .{ .selection = 0 } },
+            .Open => .Closed,
+        };
+    }
+
+    switch (menu_state) {
+        .Closed => {},
+        .Open => {
+            var new_selection = @intCast(i64, menu_state.Open.selection);
+            if (playerMove.y < 0) new_selection -= 1;
+            if (playerMove.y > 0) new_selection += 1;
+
+            if (new_selection < 0) new_selection = 1;
+            if (new_selection > 1) new_selection = 0;
+
+            menu_state = .{ .Open = .{ .selection = @intCast(u8, new_selection) } };
+
+            if (activate_menu_item) {
+                switch (new_selection) {
+                    0 => menu_state = .Closed,
+                    1 => platform.quit(),
+                    else => std.debug.panic("Unknown menu selection", .{}),
+                }
+            }
+
+            return;
+        },
     }
 
     // Don't change anything if the player didn't move
@@ -239,6 +289,11 @@ pub fn render(alpha: f64) !void {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.viewport(0, 0, screen_size.x, screen_size.y);
 
+    if (menu_state == .Open) {
+        render_menu(&flatRenderer, menu_state.Open);
+        return;
+    }
+
     const cam_size = screen_size.intToFloat(f32);
     const cam_pos = camPos.scale(16).intToFloat(f32).subv(cam_size.scaleDiv(2));
 
@@ -275,6 +330,22 @@ pub fn render(alpha: f64) !void {
         }
         layout.draw(&flatRenderer, vec2f(0, texty - layout.size.y));
     }
+    flatRenderer.flush();
+}
+
+pub fn render_menu(fr: *FlatRenderer, menuOpen: MenuOpen) void {
+    const screen_size = platform.getScreenSize().intToFloat(f32);
+    const mid_screen = screen_size.scaleDiv(2);
+
+    const scale = 2;
+    const menu_width = font.calcTextWidth("Resume", 2);
+    const menu_pos = mid_screen.sub(menu_width / 2, font.lineHeight * 2 * scale);
+    const selection_pos = menu_pos.add(-20, @intToFloat(f32, menuOpen.selection) * font.lineHeight * scale);
+
+    flatRenderer.perspective = Mat4f.orthographic(0, screen_size.x, screen_size.y, 0, -1, 1);
+    font.drawText(fr, "Resume", menu_pos, .{ .scale = scale, .textBaseline = .Top });
+    font.drawText(fr, "Quit", menu_pos.add(0, font.lineHeight * scale), .{ .scale = scale, .textBaseline = .Top });
+    font.drawText(fr, ">", selection_pos, .{ .scale = scale, .textBaseline = .Top });
     flatRenderer.flush();
 }
 
