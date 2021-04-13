@@ -39,6 +39,7 @@ pub fn main() void {
         .window = .{
             .title = "2021 7 Day Roguelike",
         },
+        .sdlControllerDBPath = "sdl_controllers.txt",
     });
 }
 
