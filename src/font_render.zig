@@ -176,16 +176,7 @@ pub const BitmapFontRenderer = struct {
     pub fn drawText(this: @This(), drawbatcher: *FlatRenderer, text: []const u8, pos: Vec2f, options: DrawOptions) void {
         var x = switch (options.textAlign) {
             .Left, .Right => pos.x,
-            .Center => calc_text_width: {
-                var total_width: f32 = 0;
-                for (text) |char| {
-                    if (this.glyphs.get(char)) |glyph| {
-                        const xadvance = (glyph.xadvance * options.scale);
-                        total_width += xadvance;
-                    }
-                }
-                break :calc_text_width pos.x - (total_width / 2);
-            },
+            .Center => pos.x - (this.calcTextWidth(text, options.scale) / 2),
         };
         var y = switch (options.textBaseline) {
             .Bottom => pos.y - std.math.floor(this.lineHeight * options.scale),
@@ -227,5 +218,102 @@ pub const BitmapFontRenderer = struct {
                 x += direction * xadvance;
             }
         }
+    }
+
+    pub fn calcTextWidth(this: @This(), text: []const u8, scale: f32) f32 {
+        var total_width: f32 = 0;
+        for (text) |char| {
+            if (this.glyphs.get(char)) |glyph| {
+                const xadvance = (glyph.xadvance * scale);
+                total_width += xadvance;
+            }
+        }
+        return total_width;
+    }
+
+    pub const GlyphLayout = struct {
+        texture: Texture,
+        uv1: Vec2f,
+        uv2: Vec2f,
+        pos: Vec2f,
+        size: Vec2f,
+    };
+
+    pub const TextLayout = struct {
+        glyphs: std.ArrayList(GlyphLayout),
+        size: Vec2f,
+
+        pub fn deinit(this: *@This()) void {
+            this.glyphs.deinit();
+        }
+
+        pub fn draw(this: @This(), drawbatcher: *FlatRenderer, pos: Vec2f) void {
+            for (this.glyphs.items) |g| {
+                drawbatcher.drawTextureRect(g.texture, g.uv1, g.uv2, g.pos.addv(pos), g.size);
+            }
+        }
+    };
+
+    const LayoutOptions = struct {
+        //textAlign: TextAlign = .Left,
+        //textBaseline: TextBaseline = .Bottom,
+        maxWidth: ?f32 = null,
+        // color: math.Color = math.Color.white,
+        scale: f32 = 1,
+    };
+
+    pub fn layoutText(this: @This(), allocator: *std.mem.Allocator, text: []const u8, options: LayoutOptions) !TextLayout {
+        var layout_glyphs = std.ArrayList(GlyphLayout).init(allocator);
+        errdefer layout_glyphs.deinit();
+
+        var x: f32 = 0;
+        var y: f32 = 0;
+        const direction: f32 = 1;
+
+        var width: f32 = 0;
+
+        var i: usize = 0;
+        while (i < text.len) : (i += 1) {
+            const char = text[i];
+            if (this.glyphs.get(char)) |glyph| {
+                const xadvance = (glyph.xadvance * options.scale);
+                const offset = glyph.offset.scale(options.scale);
+                const texture = this.pages[glyph.page];
+                // const quad = math.Quad.init(glyph.pos.x, glyph.pos.y, glyph.size.x, glyph.size.y, this.scale.x, this.scale.y);
+                const textureSize = texture.size.intToFloat(f32);
+
+                if (options.maxWidth != null and x + direction * xadvance > options.maxWidth.?) {
+                    x = 0;
+                    y += std.math.floor(this.lineHeight * options.scale);
+                }
+
+                const textAlignOffset = 0;
+                const renderPos = vec2f(
+                    x + offset.x + textAlignOffset,
+                    y + offset.y,
+                );
+
+                const glyph_pos = glyph.pos.divv(textureSize);
+                const render_size = glyph.size.scale(options.scale);
+
+                try layout_glyphs.append(.{
+                    .texture = texture,
+                    .uv1 = glyph_pos,
+                    .uv2 = glyph.pos.addv(glyph.size).divv(textureSize),
+                    .pos = renderPos,
+                    .size = render_size,
+                });
+
+                x += direction * xadvance;
+                if (x > width) {
+                    width = x;
+                }
+            }
+        }
+
+        return TextLayout{
+            .glyphs = layout_glyphs,
+            .size = vec2f(width, y + std.math.floor(this.lineHeight * options.scale)),
+        };
     }
 };

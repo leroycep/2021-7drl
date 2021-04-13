@@ -266,12 +266,14 @@ pub fn render(alpha: f64) !void {
     var texty: f32 = 50;
     var i = @intCast(isize, adventureLog.items.len) - 1;
     while (i >= 0 and texty > 0) {
+        const text = adventureLog.items[@intCast(usize, i)];
+        var layout = try font.layoutText(allocator, text, .{ .maxWidth = cam_size.x });
+        defer layout.deinit();
         defer {
             i -= 1;
-            texty -= 10;
+            texty -= layout.size.y;
         }
-        const text = adventureLog.items[@intCast(usize, i)];
-        font.drawText(&flatRenderer, text, vec2f(0, texty), .{});
+        layout.draw(&flatRenderer, vec2f(0, texty - layout.size.y));
     }
     flatRenderer.flush();
 }
