@@ -121,6 +121,7 @@ pub fn onEvent(event: platform.event.Event) !void {
     var playerMove = vec2i(0, 0);
     var toggle_menu = false;
     var activate_menu_item = false;
+    const THRESHOLD = std.math.maxInt(i16) / 3;
     switch (event) {
         .KeyDown => |e| switch (e.scancode) {
             .KP_8, .W, .UP => playerMove = vec2i(0, -1),
@@ -138,14 +139,33 @@ pub fn onEvent(event: platform.event.Event) !void {
             else => {},
         },
         .ControllerButtonDown => |cbutton| switch (cbutton.button) {
-            11 => playerMove = vec2i(0, -1),
-            12 => playerMove = vec2i(0, 1),
-            13 => playerMove = vec2i(-1, 0),
-            14 => playerMove = vec2i(1, 0),
-            6 => toggle_menu = true,
-            0 => activate_menu_item = true,
+            .DPAD_UP => playerMove = vec2i(0, -1),
+            .DPAD_DOWN => playerMove = vec2i(0, 1),
+            .DPAD_LEFT => playerMove = vec2i(-1, 0),
+            .DPAD_RIGHT => playerMove = vec2i(1, 0),
+            .START => toggle_menu = true,
+            .A => activate_menu_item = true,
             else => |num| {
                 std.log.debug("unknown button {}", .{num});
+            },
+        },
+        .ControllerAxis => |caxis| switch (caxis.axis) {
+            .LEFTY => {
+                if (caxis.value < -THRESHOLD) {
+                    playerMove = vec2i(0, -1);
+                } else if (caxis.value > THRESHOLD) {
+                    playerMove = vec2i(0, 1);
+                }
+            },
+            .LEFTX => {
+                if (caxis.value < -THRESHOLD) {
+                    playerMove = vec2i(-1, 0);
+                } else if (caxis.value > THRESHOLD) {
+                    playerMove = vec2i(1, 0);
+                }
+            },
+            else => |axis| {
+                std.log.debug("unused axis {}", .{axis});
             },
         },
         .Quit => platform.quit(),
