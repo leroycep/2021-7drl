@@ -196,7 +196,7 @@ pub fn onEvent(event: platform.event.Event) !void {
                 switch (new_selection) {
                     0 => menu_state = .Closed,
                     1 => platform.quit(),
-                    else => std.debug.panic("Unknown menu selection", .{}),
+                    else => @panic("Unknown menu selection"),
                 }
             }
 
