@@ -12,10 +12,16 @@ pub fn build(b: *Builder) void {
     native.install();
     native.linkLibC();
 
-    if (target.cpu_arch != null and target.cpu_arch.? == .aarch64) {
+    const sdl_sdk_path_opt = b.option([]const u8, "sdl-sdk", "The path to the SDL2 sdk") orelse null;
+    // TODO: support static compilation?
+    //const sdl_static = b.option(bool, "sdl-static", "Choses whether to link SDL statically or dynamically. Default is dynamic") orelse false;
+
+    if (sdl_sdk_path_opt) |sdk_path| {
         native.linkSystemLibraryName("SDL2");
-        native.addIncludeDir("./sdl2-aarch64/");
-        native.addLibPath("./sdl2-aarch64/");
+        native.addIncludeDir(b.fmt("{s}/include", .{sdk_path}));
+
+        const lib_dir = b.fmt("{s}/lib", .{sdk_path});
+        native.addLibPath(lib_dir);
     } else {
         native.linkSystemLibrary("SDL2");
     }
